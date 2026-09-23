@@ -1,0 +1,408 @@
+@tailwind base;
+
+/* PC-P01-home.html */
+@layer base {
+      html, body { margin: 0; padding: 0; }
+      body { overscroll-behavior: none; }
+    }
+    ::-webkit-scrollbar { display: none; }
+
+    /* Staggered Entrance Animations */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.45;
+        transform: scale(0.92);
+      }
+    }
+
+    @keyframes progressShimmer {
+      0% {
+        transform: translateX(-100%);
+      }
+      100% {
+        transform: translateX(250%);
+      }
+    }
+
+    .animate-enter-1 {
+      animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+    }
+    .animate-enter-2 {
+      animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
+    }
+    .animate-enter-3 {
+      animation: fadeInUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.19s both;
+    }
+    .animate-enter-bottom {
+      animation: fadeInUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+    }
+
+    .status-pulse-green {
+      animation: pulseGlow 2.2s infinite ease-in-out;
+    }
+    .status-pulse-indigo {
+      animation: pulseGlow 1.8s infinite ease-in-out;
+    }
+    .status-pulse-amber {
+      animation: pulseGlow 1.6s infinite ease-in-out;
+    }
+
+    .progress-shimmer-bar {
+      position: relative;
+      overflow: hidden;
+    }
+    .progress-shimmer-bar::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 40%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+      animation: progressShimmer 2.2s infinite ease-in-out;
+    }
+
+    /* Tactile button press & hover transitions */
+    .tactile-btn {
+      transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+    }
+    .tactile-btn:hover {
+      transform: translateY(-1px);
+    }
+    .tactile-btn:active {
+      transform: translateY(1px) scale(0.98);
+    }
+
+    /* Smooth popover transition */
+    .source-popover {
+      transform-origin: top right;
+      transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.18s;
+    }
+    .source-popover.hidden-popover {
+      opacity: 0;
+      transform: scale(0.95) translateY(-4px);
+      pointer-events: none;
+      visibility: hidden;
+    }
+    .source-popover.show-popover {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      pointer-events: auto;
+      visibility: visible;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .animate-enter-1, .animate-enter-2, .animate-enter-3, .animate-enter-bottom {
+        animation: none !important;
+      }
+      .progress-shimmer-bar::after {
+        animation: none !important;
+      }
+      .status-pulse-green, .status-pulse-indigo, .status-pulse-amber {
+        animation: none !important;
+      }
+      .tactile-btn {
+        transition: none !important;
+      }
+    }
+
+/* PC-P02-settings.html */
+@layer base {
+    html, body {
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      overscroll-behavior: none;
+    }
+    main > :first-child {
+      margin-top: 0 !important;
+    }
+    main > :last-child {
+      margin-bottom: 0 !important;
+    }
+  }
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 入场动效 Keyframes */
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulseSubtle {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.55;
+      transform: scale(0.92);
+    }
+  }
+
+  @keyframes rotateJiggle {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(-8deg); }
+    75% { transform: rotate(8deg); }
+    100% { transform: rotate(0deg); }
+  }
+
+  /* 动画辅助类 */
+  .anim-fade-down {
+    animation: fadeInDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .anim-fade-up {
+    animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .anim-fade-up-delay-1 {
+    animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  }
+  .anim-fade-up-delay-2 {
+    animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
+  }
+  .anim-fade-up-delay-3 {
+    animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+  }
+  .anim-fade-up-delay-4 {
+    animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
+  }
+
+  /* 呼吸灯动画 */
+  .status-pulse-dot {
+    animation: pulseSubtle 2.6s ease-in-out infinite;
+  }
+
+  /* 连通性测试图标 hover 摆动 */
+  .group-test-btn:hover .icon-jiggle {
+    animation: rotateJiggle 0.45s ease-in-out infinite alternate;
+  }
+
+  /* 无障碍：尊重减少动效偏好 */
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-delay: -1ms !important;
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      background-attachment: initial !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0s !important;
+      transition-delay: 0s !important;
+    }
+  }
+
+/* PC-P03-bank-import.html */
+@layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        overscroll-behavior: none;
+      }
+    }
+    ::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Keyframes & Micro-interactions */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulseDot {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      50% {
+        transform: scale(1.4);
+        opacity: 0.7;
+      }
+    }
+
+    @keyframes iconBounce {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(3px);
+      }
+    }
+
+    @keyframes shimmerSweep {
+      0% {
+        transform: translateX(-100%);
+      }
+      100% {
+        transform: translateX(250%);
+      }
+    }
+
+    .animate-fadeInUp {
+      animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .animate-stagger-1 { animation-delay: 0.05s; }
+    .animate-stagger-2 { animation-delay: 0.12s; }
+    .animate-stagger-3 { animation-delay: 0.18s; }
+    .animate-stagger-4 { animation-delay: 0.24s; }
+
+    .pulse-dot {
+      animation: pulseDot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    .btn-import:hover .import-icon {
+      animation: iconBounce 0.8s ease infinite;
+    }
+
+    .shimmer-track {
+      position: relative;
+      overflow: hidden;
+    }
+    .shimmer-track::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.45) 50%, transparent 100%);
+      animation: shimmerSweep 2.2s infinite ease-in-out;
+      pointer-events: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, ::after, ::before {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+
+/* PC-P04-students.html */
+@layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow-x: hidden;
+      }
+    }
+    ::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Keyframes for entrance & micro-interactions */
+    @keyframes fadeInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulseDot {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.35;
+        transform: scale(0.8);
+      }
+    }
+
+    @keyframes progressGrow {
+      from {
+        width: 0%;
+      }
+    }
+
+    .anim-fade-down {
+      animation: fadeInDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .anim-fade-up {
+      animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .anim-delay-1 { animation-delay: 0.08s; }
+    .anim-delay-2 { animation-delay: 0.16s; }
+    .anim-delay-3 { animation-delay: 0.24s; }
+    .anim-delay-4 { animation-delay: 0.32s; }
+    .anim-delay-5 { animation-delay: 0.4s; }
+
+    .pulse-indicator {
+      animation: pulseDot 2s ease-in-out infinite;
+    }
+
+    .pulse-indicator-fast {
+      animation: pulseDot 1.4s ease-in-out infinite;
+    }
+
+    .progress-bar-fill {
+      animation: progressGrow 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    }
+
+    /* Accessibility respect */
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }

@@ -1,0 +1,30 @@
+appId: org.kaida.autoquiz
+productName: 开大智达舱
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+extraResources: []
+directories:
+  output: release
+publish:
+  provider: github
+  owner: zmjza
+  repo: Shanghai_Open_University_Smart_Answer_Pod
+mac:
+  icon: build/icon.png
+  target:
+    - dmg
+    - zip
+  artifactName: kaida-auto-quiz-${version}-macOS.${ext}
+win:
+  icon: build/icon.png
+  target:
+    - nsis
+  artifactName: kaida-auto-quiz-${version}-Windows.${ext}
+asar: true
+asarUnpack:
+  - node_modules/playwright/**/*
+  - node_modules/playwright-core/**/*
+  - node_modules/patchright/**/*
+  - node_modules/patchright-core/**/*

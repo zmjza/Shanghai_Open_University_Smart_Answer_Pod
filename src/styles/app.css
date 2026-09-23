@@ -1,0 +1,60 @@
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  overscroll-behavior: none;
+  padding-top: 64px;
+}
+
+header.fixed.top-0:not(.app-shell-header),
+header.sticky.top-0 {
+  top: 64px !important;
+}
+
+#app > div > header {
+  display: none !important;
+}
+
+#app > div > main:first-of-type {
+  margin-top: 24px;
+}
+
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  display: inline-block;
+  white-space: nowrap;
+  direction: ltr;
+}
+
+/* 页面主体统一落在学生账号和设置的内容起始线。 */
+main.flex-1.w-full.max-w-\[1600px\] {
+  padding-top: 92px !important;
+  justify-content: flex-start !important;
+}
+
+main.mx-auto.max-w-5xl,
+main.mx-auto.max-w-\[1600px\] {
+  padding-top: 92px !important;
+}
+
+main.mx-auto.max-w-5xl button,
+main.mx-auto.max-w-\[1600px\] button {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+main.mx-auto.max-w-5xl button:hover,
+main.mx-auto.max-w-\[1600px\] button:hover {
+  transform: translateY(-1px);
+}
+
+main.mx-auto.max-w-5xl button:active,
+main.mx-auto.max-w-\[1600px\] button:active {
+  transform: translateY(1px) scale(0.98);
+}

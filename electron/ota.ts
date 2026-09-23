@@ -11,6 +11,7 @@ function broadcast(state: UpdateState) {
 
 autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = false
+autoUpdater.autoRunAppAfterInstall = true
 const flow = new UpdateFlow(autoUpdater, app.isPackaged, isRunning, broadcast)
 
 export function currentUpdateState() { return flow.getState() }

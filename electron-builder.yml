@@ -13,6 +13,9 @@ publish:
   repo: Shanghai_Open_University_Smart_Answer_Pod
 mac:
   icon: build/icon.png
+  identity: "-"
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
   target:
     - dmg
     - zip

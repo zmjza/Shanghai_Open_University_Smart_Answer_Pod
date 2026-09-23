@@ -67,3 +67,20 @@ test('发布配置同时生成 macOS 自动更新 ZIP 与 DMG', async () => {
   const ota = await readFile(new URL('../electron/ota.ts', import.meta.url), 'utf8')
   assert.match(ota, /repo: 'Shanghai_Open_University_Smart_Answer_Pod'/)
 })
+
+test('macOS Squirrel 安装更新后自动重新启动应用', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const ota = await readFile(new URL('../electron/ota.ts', import.meta.url), 'utf8')
+  assert.match(ota, /autoUpdater\.autoRunAppAfterInstall\s*=\s*true/)
+  assert.match(ota, /autoUpdater\.autoInstallOnAppQuit\s*=\s*false/)
+})
+
+test('发布配置使用 ad-hoc bundle 签名且发布门禁不依赖 Developer ID', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const config = await readFile(new URL('../electron-builder.yml', import.meta.url), 'utf8')
+  assert.match(config, /identity: ['"]?-['"]?/)
+  const publisher = await readFile(new URL('../scripts/release-publish.mjs', import.meta.url), 'utf8')
+  assert.doesNotMatch(publisher, /Developer ID Application/)
+  assert.match(publisher, /\['auth', 'status', '--hostname', 'github\.com'\]/)
+  assert.match(publisher, /gh:github\.com/)
+})

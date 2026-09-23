@@ -3,8 +3,9 @@
 - 发布产品名称“开大智达舱”；macOS 与 Windows 打包图标均由仓库现有 logo 生成。
 - 顶栏展示当前版本徽记；点击更新检查时显示旋转状态，最新版显示通知，新版以品牌弹窗提供版本对比、下载和安装重启操作。
 - 将 OTA 更新源改为 `zmjza/Shanghai_Open_University_Smart_Answer_Pod`；修复更新服务明确返回无新版时仍显示可下载的问题。
-- 验证：OTA 流程测试 5/5、构建、macOS ARM64 与 Windows x64 本地安装包结构构建通过；包内 macOS 应用名称、版本和图标文件已检查。
-- 限制：macOS 构建使用本地未签名模式；本机仅有自签名身份，无法验证正式签名 OTA 安装。GitHub Release、在线下载和客户端重启安装尚未验证。
+- macOS 明确启用 Squirrel 安装后的应用自动重启；自动安装与用户数据保留仍待发布版真机验证。
+- 验证：OTA 流程测试与构建通过；Squirrel 自动安装、重启、用户数据保留及本次 ad-hoc 签名安装包仍待真实发布客户端验收。
+- 限制：macOS 使用 ad-hoc 签名，不具备 Apple Developer ID 信任或公证；首次打开可能出现 Gatekeeper 提示。GitHub Release 和在线 OTA 尚未验证。
 
 ## 0.1.7 — 2026-09-23（开发中记录）
 

@@ -1,92 +1,110 @@
 import { createHash } from 'node:crypto'
-import { spawnSync } from 'node:child_process'
-import { access, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
+import { access, mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { constants } from 'node:fs'
+import { request as httpsRequest } from 'node:https'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import os from 'node:os'
 import path from 'node:path'
-import { tmpdir } from 'node:os'
 
-const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
-const config = await readFile(new URL('../electron-builder.yml', import.meta.url), 'utf8')
-const changelog = await readFile(new URL('../CHANGELOG.md', import.meta.url), 'utf8')
-const version = pkg.version
 const repo = 'zmjza/Shanghai_Open_University_Smart_Answer_Pod'
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
+const config = await readFile(path.join(root, 'electron-builder.yml'), 'utf8')
+const changelog = await readFile(path.join(root, 'CHANGELOG.md'), 'utf8')
+const version = pkg.version
+const target = `v${version}`
 const notesAt = process.argv.indexOf('--notes')
-const notes = notesAt >= 0 ? process.argv[notesAt + 1] : ''
-if (!/^\d+\.\d+\.\d+$/.test(version) || !notes?.trim()) throw new Error('需要有效 SemVer 版本及 --notes 更新说明')
-if (!config.includes(`repo: ${repo.split('/')[1]}`)) throw new Error('electron-builder 仓库配置与发布目标不一致')
-if (!config.includes('identity: "-"')) throw new Error('macOS 必须启用 electron-builder ad-hoc bundle 签名')
-if (!changelog.includes(`## ${version}`)) throw new Error('CHANGELOG 缺少当前版本记录')
-if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) throw new Error('拒绝使用环境变量 Token；请使用 macOS Keychain 中的 GitHub CLI 凭据')
+const notes = notesAt >= 0 ? process.argv[notesAt + 1]?.trim() : ''
+if (!/^\d+\.\d+\.\d+$/.test(version) || !notes) throw new Error('需要有效 SemVer 版本及 --notes 更新说明')
+if (!changelog.includes(`## ${version}`)) throw new Error(`CHANGELOG 缺少 ## ${version}`)
+if (!config.includes('identity: "-"')) throw new Error('macOS 必须使用 ad-hoc 签名')
+if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) throw new Error('拒绝使用环境变量 Token')
 const keychain = spawnSync('security', ['find-generic-password', '-s', 'gh:github.com'], { stdio: 'ignore' })
 if (keychain.status !== 0) throw new Error('macOS Keychain 中未找到 gh:github.com 凭据项')
 const auth = spawnSync('gh', ['auth', 'status', '--hostname', 'github.com'], { stdio: 'ignore' })
 if (auth.status !== 0) throw new Error('GitHub CLI 未登录')
-const target = `v${version}`
-const remoteTags = spawnSync('git', ['ls-remote', '--tags', 'origin'], { encoding: 'utf8' })
-if (remoteTags.status !== 0) throw new Error('无法核对 GitHub 远端 Tag')
-if (remoteTags.stdout.split(/\r?\n/).some(line => line.endsWith(`refs/tags/${target}`) || line.endsWith(`refs/tags/${target}^{}`))) throw new Error(`远端 Tag ${target} 已存在，拒绝复用`)
-const existing = spawnSync('gh', ['release', 'view', target, '--repo', repo, '--json', 'tagName'], { stdio: 'ignore' })
-if (existing.status === 0) throw new Error(`GitHub Release ${target} 已存在，拒绝覆盖`)
-const branch = spawnSync('git', ['branch', '--show-current'], { encoding: 'utf8' }).stdout.trim()
-if (branch !== 'main') throw new Error(`发布分支应为 main，当前为 ${branch || 'detached HEAD'}`)
-const origin = spawnSync('git', ['remote', 'get-url', 'origin'], { encoding: 'utf8' })
-if (origin.status !== 0 || !origin.stdout.trim().includes('Shanghai_Open_University_Smart_Answer_Pod')) throw new Error('origin 未指向目标 GitHub 仓库')
-const buildStatus = spawnSync('git', ['status', '--porcelain', '--', 'package.json', 'package-lock.json', 'electron-builder.yml', 'vite.config.ts', 'tsconfig.json', 'tsconfig.node.json', 'postcss.config.cjs', 'tailwind.config.cjs', 'index.html', 'electron', 'src', 'build'], { encoding: 'utf8' })
-if (buildStatus.status !== 0 || buildStatus.stdout.trim()) throw new Error('发布前要求应用源码和打包配置已提交，避免未提交文件混入构建')
-const stagingRoot = await mkdtemp(path.join(tmpdir(), `kaida-${version}-`))
-const platforms = [
-  { args: ['--mac', 'dmg', 'zip', '--arm64'], output: path.join(stagingRoot, 'mac-arm64'), manifest: 'latest-mac.yml', artifacts: [`kaida-auto-quiz-${version}-macOS.dmg`, `kaida-auto-quiz-${version}-macOS.zip`] },
-  { args: ['--win', 'nsis', '--x64'], output: path.join(stagingRoot, 'win-x64'), manifest: 'latest.yml', artifacts: [`kaida-auto-quiz-${version}-Windows.exe`] },
- ]
-for (const platform of platforms) {
-  const build = spawnSync('npm', ['exec', '--', 'electron-builder', ...platform.args, `-c.directories.output=${platform.output}`, '--publish', 'never'], { stdio: 'inherit', env: { ...process.env, CSC_IDENTITY_AUTO_DISCOVERY: 'true' } })
-  if (build.status !== 0) throw new Error(`${platform.args[0]} 安装包构建失败`)
-}
-for (const platform of platforms) for (const artifact of platform.artifacts) await access(path.join(platform.output, artifact), constants.R_OK)
-for (const platform of platforms) {
-  const artifactName = platform.artifacts.at(-1)
-  const manifestName = platform.manifest
-  const manifest = await readFile(path.join(platform.output, manifestName), 'utf8')
-  const lines = manifest.split(/\r?\n/)
-  const listed = lines.flatMap((line, index) => {
-    const url = line.match(/^\s+- url: (.+)$/)?.[1]
-    if (!url) return []
-    return [{ url, sha512: lines[index + 1]?.match(/^\s+sha512: (.+)$/)?.[1], size: Number(lines[index + 2]?.match(/^\s+size: (\d+)$/)?.[1]) }]
-  })
-  if (!manifest.includes(`version: ${version}`) || listed.length !== platform.artifacts.length) throw new Error(`${manifestName} 版本或资产列表不匹配`)
-  for (const file of listed) {
-    if (!platform.artifacts.includes(file.url)) throw new Error(`${manifestName} 引用了非目标资产 ${file.url}`)
-    const artifact = await readFile(path.join(platform.output, file.url))
-    const actual = createHash('sha512').update(artifact).digest('base64')
-    if (file.size !== artifact.byteLength || file.sha512 !== actual) throw new Error(`${manifestName} 资产大小或 SHA-512 校验失败：${file.url}`)
+const token = execFileSync('gh', ['auth', 'token', '--hostname', 'github.com'], { encoding: 'utf8' }).trim()
+const api = (method, endpoint, body) => new Promise((resolve, reject) => {
+  const req = httpsRequest(new URL(`https://api.github.com${endpoint}`), { method, headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json', 'User-Agent': 'kaida-release-publisher' } }, res => {
+    const chunks = []; res.on('data', chunk => chunks.push(chunk)); res.on('end', () => {
+      const text = Buffer.concat(chunks).toString('utf8'); let data; try { data = text ? JSON.parse(text) : undefined } catch { data = text }
+      if ((res.statusCode ?? 500) >= 400) reject(new Error(`GitHub API ${res.statusCode}: ${data?.message ?? data}`)); else resolve(data)
+    })
+  }); req.on('error', reject); if (body !== undefined) req.write(JSON.stringify(body)); req.end()
+})
+const upload = (releaseId, filePath) => new Promise((resolve, reject) => {
+  const name = path.basename(filePath); stat(filePath).then(info => {
+    const req = httpsRequest(new URL(`https://uploads.github.com/repos/${repo}/releases/${releaseId}/assets?name=${encodeURIComponent(name)}`), { method: 'POST', headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/octet-stream', 'Content-Length': info.size, 'User-Agent': 'kaida-release-publisher' } }, res => {
+      const chunks = []; res.on('data', chunk => chunks.push(chunk)); res.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8'); let data; try { data = text ? JSON.parse(text) : undefined } catch { data = text }
+        if ((res.statusCode ?? 500) >= 400) reject(new Error(`上传 ${name} 失败：${data?.message ?? data}`)); else resolve(data)
+      })
+    }); req.setTimeout(20 * 60 * 1000, () => req.destroy(new Error(`上传 ${name} 超时`))); req.on('error', reject); createReadStream(filePath).on('error', reject).pipe(req)
+  }).catch(reject)
+})
+async function uploadWithRetry(releaseId, filePath) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try { return await upload(releaseId, filePath) }
+    catch (error) { if (attempt === 3) throw error; console.log(`上传 ${path.basename(filePath)} 失败，${attempt}/3 重试`); await new Promise(resolve => setTimeout(resolve, attempt * 3000)) }
   }
-  const topHash = lines.find(line => line.startsWith('sha512: '))?.slice(8)
-  if (!platform.artifacts.includes(artifactName) || !topHash) throw new Error(`${manifestName} 主下载项缺失`)
-  const primary = await readFile(path.join(platform.output, artifactName))
-  if (topHash !== createHash('sha512').update(primary).digest('base64')) throw new Error(`${manifestName} 主下载项 SHA-512 校验失败`)
 }
-const push = spawnSync('git', ['push', 'origin', 'main'], { stdio: 'inherit' })
-if (push.status !== 0) throw new Error('GitHub main 分支推送失败')
-const uploads = platforms.flatMap(platform => [...platform.artifacts, platform.manifest].flatMap(file => [path.join(platform.output, file), ...(file.endsWith('.dmg') || file.endsWith('.zip') || file.endsWith('.exe') ? [path.join(platform.output, file + '.blockmap')] : [])]))
-const create = spawnSync('gh', ['release', 'create', target, ...uploads, '--repo', repo, '--title', `开大智达舱 ${version}`, '--notes', notes], { stdio: 'inherit' })
-if (create.status !== 0) throw new Error('GitHub Release 创建失败')
-const verify = spawnSync('gh', ['release', 'view', target, '--repo', repo, '--json', 'tagName,isDraft,body,assets'], { encoding: 'utf8' })
-if (verify.status !== 0) throw new Error('无法回读并验证 GitHub Release')
-const release = JSON.parse(verify.stdout)
-const expectedAssets = uploads.map(file => path.basename(file)).sort()
-const actualAssets = release.assets.map(asset => asset.name).sort()
-if (release.tagName !== target || release.isDraft || release.body !== notes || expectedAssets.some((name, index) => actualAssets[index] !== name) || actualAssets.length !== expectedAssets.length) throw new Error('GitHub Release Tag、说明或资产校验失败')
-const head = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim()
-const taggedCommit = spawnSync('gh', ['api', `repos/${repo}/commits/${target}`, '--jq', '.sha'], { encoding: 'utf8' })
-if (taggedCommit.status !== 0 || taggedCommit.stdout.trim() !== head) throw new Error('Release Tag 未指向本次提交')
-const remoteAssetsDir = path.join(stagingRoot, 'remote-assets')
-await mkdir(remoteAssetsDir)
-const download = spawnSync('gh', ['release', 'download', target, '--repo', repo, '--dir', remoteAssetsDir], { stdio: 'inherit' })
-if (download.status !== 0) throw new Error('远端 Release 资产下载校验失败')
-for (const file of uploads) {
-  const local = await readFile(file)
-  const remote = await readFile(path.join(remoteAssetsDir, path.basename(file)))
-  const hash = (data) => createHash('sha256').update(data).digest('hex')
-  if (local.byteLength !== remote.byteLength || hash(local) !== hash(remote)) throw new Error(`远端资产与本次构建不一致：${path.basename(file)}`)
+async function sha256(filePath) { const hash = createHash('sha256'); hash.update(await readFile(filePath)); return hash.digest('hex') }
+async function waitUploaded(assetId) {
+  for (let i = 0; i < 120; i++) {
+    const asset = await api('GET', `/repos/${repo}/releases/assets/${assetId}`)
+    if (asset.state === 'uploaded' && asset.digest) return asset
+    if (asset.state !== 'starter') throw new Error(`资产 ${asset.name} 状态异常：${asset.state}`)
+    await new Promise(resolve => setTimeout(resolve, 5000))
+  }
+  throw new Error(`资产处理超时：${assetId}`)
 }
-await rm(stagingRoot, { recursive: true, force: true })
+const buildRoot = await mkdtemp(path.join(os.tmpdir(), `kaida-${version}-`))
+const platforms = [
+  { args: ['--mac', 'dmg', 'zip', '--arm64'], dir: path.join(buildRoot, 'mac-arm64'), manifest: 'latest-mac.yml', files: [`kaida-auto-quiz-${version}-macOS.dmg`, `kaida-auto-quiz-${version}-macOS.zip`] },
+  { args: ['--win', 'nsis', '--x64'], dir: path.join(buildRoot, 'win-x64'), manifest: 'latest.yml', files: [`kaida-auto-quiz-${version}-Windows.exe`] },
+]
+const main = async () => {
+  const relevant = ['package.json', 'package-lock.json', 'electron-builder.yml', 'electron', 'src', 'build']
+  const status = spawnSync('git', ['status', '--porcelain', '--', ...relevant], { encoding: 'utf8' })
+  if (status.status !== 0 || status.stdout.trim()) throw new Error('发布前要求本次源码和打包配置已提交')
+  for (const platform of platforms) {
+    const result = spawnSync('npm', ['exec', '--', 'electron-builder', ...platform.args, `-c.directories.output=${platform.dir}`, '--publish', 'never'], { stdio: 'inherit', env: { ...process.env, CSC_IDENTITY_AUTO_DISCOVERY: 'true' } })
+    if (result.status !== 0) throw new Error(`${platform.args[0]} 安装包构建失败`)
+  }
+  const files = platforms.flatMap(platform => [...platform.files, platform.manifest].map(name => path.join(platform.dir, name)))
+  const blockmaps = files.filter(file => /\.(dmg|zip|exe)$/.test(file)).map(file => `${file}.blockmap`)
+  files.push(...blockmaps)
+  for (const file of files) await access(file, constants.R_OK)
+  const push = spawnSync('git', ['push', 'origin', 'main'], { stdio: 'inherit' })
+  if (push.status !== 0) throw new Error('GitHub main 分支推送失败')
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim()
+  const taggedCommit = spawnSync('gh', ['api', `repos/${repo}/commits/${target}`, '--jq', '.sha'], { encoding: 'utf8' })
+  if (taggedCommit.status === 0 && taggedCommit.stdout.trim() !== head) throw new Error(`Tag ${target} 未指向当前提交 ${head}`)
+  let release
+  try { release = await api('GET', `/repos/${repo}/releases/tags/${target}`) }
+  catch (error) {
+    if (!(error instanceof Error && error.message.startsWith('GitHub API 404'))) throw error
+    release = await api('POST', `/repos/${repo}/releases`, { tag_name: target, target_commitish: 'main', name: `开大智达舱 ${version}`, body: notes, draft: true, prerelease: false })
+  }
+  if (!release.draft) throw new Error(`Release ${target} 已发布，拒绝覆盖`)
+  const names = new Set(files.map(file => path.basename(file)))
+  for (const asset of release.assets ?? []) if (names.has(asset.name)) await api('DELETE', `/repos/${repo}/releases/assets/${asset.id}`)
+  for (const file of files) {
+    const uploaded = await uploadWithRetry(release.id, file)
+    const complete = await waitUploaded(uploaded.id)
+    const actual = await sha256(file)
+    if (complete.digest !== `sha256:${actual}`) throw new Error(`远端 SHA-256 不一致：${path.basename(file)}`)
+    console.log(`已上传并校验 ${path.basename(file)}`)
+  }
+  const refreshed = await api('GET', `/repos/${repo}/releases/${release.id}`)
+  const expected = files.map(file => path.basename(file)).sort()
+  const actual = (refreshed.assets ?? []).filter(asset => asset.state === 'uploaded').map(asset => asset.name).sort()
+  if (actual.length !== expected.length || actual.some((name, index) => name !== expected[index])) throw new Error('远端资产集合不完整或包含错误文件')
+  const published = await api('PATCH', `/repos/${repo}/releases/${release.id}`, { draft: false })
+  if (published.draft) throw new Error('Release 仍是草稿状态')
+  await rm(buildRoot, { recursive: true, force: true })
+  console.log(`发布完成：https://github.com/${repo}/releases/tag/${target}`)
+}
+main().catch(error => { console.error(error instanceof Error ? error.message : error); process.exitCode = 1 })

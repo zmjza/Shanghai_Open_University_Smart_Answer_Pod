@@ -1,3 +1,9 @@
+## 1.0.0 — 2026-09-24（正式版本）
+
+- 正式发布开大智达舱桌面安装包与 GitHub OTA 更新清单。
+- 保留 macOS Squirrel.Mac 下载完成后自动安装并重启；Windows x64 提供 NSIS 安装包。
+- 发布验证：macOS ARM64、Windows x64 均通过 GitHub Actions 构建、资产摘要与回下载校验。
+
 ## 0.9.0 — 2026-09-24（OTA 验证版本）
 
 - 用于验证 0.8.0 正式客户端从 GitHub 更新源发现新版本。

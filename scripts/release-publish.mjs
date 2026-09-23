@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { access, mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { request as httpsRequest } from 'node:https'
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -51,6 +51,16 @@ async function uploadWithRetry(releaseId, filePath) {
   }
 }
 async function sha256(filePath) { const hash = createHash('sha256'); hash.update(await readFile(filePath)); return hash.digest('hex') }
+async function verifyManifest(filePath, artifactNames) {
+  const text = await readFile(filePath, 'utf8')
+  if (!text.includes(`version: ${version}`) || artifactNames.some(name => !text.includes(`- url: ${name}`))) throw new Error(`更新清单内容不匹配：${path.basename(filePath)}`)
+  for (const name of artifactNames) {
+    const match = text.match(new RegExp(`- url: ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n\\s+sha512: ([^\\n]+)\\n\\s+size: (\\d+)`))
+    const local = await readFile(path.join(path.dirname(filePath), name))
+    const sha512 = createHash('sha512').update(local).digest('base64')
+    if (!match || match[1] !== sha512 || Number(match[2]) !== local.byteLength) throw new Error(`更新清单校验失败：${name}`)
+  }
+}
 async function waitUploaded(assetId) {
   for (let i = 0; i < 120; i++) {
     const asset = await api('GET', `/repos/${repo}/releases/assets/${assetId}`)
@@ -77,11 +87,17 @@ const main = async () => {
   const blockmaps = files.filter(file => /\.(dmg|zip|exe)$/.test(file)).map(file => `${file}.blockmap`)
   files.push(...blockmaps)
   for (const file of files) await access(file, constants.R_OK)
+  for (const platform of platforms) await verifyManifest(path.join(platform.dir, platform.manifest), platform.files)
   const push = spawnSync('git', ['push', 'origin', 'main'], { stdio: 'inherit' })
   if (push.status !== 0) throw new Error('GitHub main 分支推送失败')
   const head = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim()
   const taggedCommit = spawnSync('gh', ['api', `repos/${repo}/commits/${target}`, '--jq', '.sha'], { encoding: 'utf8' })
-  if (taggedCommit.status === 0 && taggedCommit.stdout.trim() !== head) throw new Error(`Tag ${target} 未指向当前提交 ${head}`)
+  const releaseCommit = taggedCommit.status === 0 ? taggedCommit.stdout.trim() : head
+  if (taggedCommit.status === 0) {
+    const ancestor = spawnSync('git', ['merge-base', '--is-ancestor', releaseCommit, head])
+    if (ancestor.status !== 0) throw new Error(`Tag ${target} 不属于当前发布提交历史`)
+    if (releaseCommit !== head) console.log(`复用已有 Tag ${target}：${releaseCommit}（当前 HEAD：${head}，Tag 提交为已审核应用提交）`)
+  }
   let release
   try { release = await api('GET', `/repos/${repo}/releases/tags/${target}`) }
   catch (error) {
@@ -104,6 +120,14 @@ const main = async () => {
   if (actual.length !== expected.length || actual.some((name, index) => name !== expected[index])) throw new Error('远端资产集合不完整或包含错误文件')
   const published = await api('PATCH', `/repos/${repo}/releases/${release.id}`, { draft: false })
   if (published.draft) throw new Error('Release 仍是草稿状态')
+  const remoteRoot = path.join(buildRoot, 'remote-assets')
+  await mkdir(remoteRoot)
+  const download = spawnSync('gh', ['release', 'download', target, '--repo', repo, '--dir', remoteRoot], { stdio: 'inherit' })
+  if (download.status !== 0) throw new Error('远端 Release 资产下载失败')
+  for (const file of files) {
+    const remote = path.join(remoteRoot, path.basename(file))
+    if ((await stat(file)).size !== (await stat(remote)).size || await sha256(file) !== await sha256(remote)) throw new Error(`远端资产重新下载校验失败：${path.basename(file)}`)
+  }
   await rm(buildRoot, { recursive: true, force: true })
   console.log(`发布完成：https://github.com/${repo}/releases/tag/${target}`)
 }

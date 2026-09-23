@@ -1,0 +1,70 @@
+name: Publish desktop release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer version
+        required: true
+      notes:
+        description: Release notes
+        required: true
+permissions:
+  contents: write
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: mac
+            args: --mac dmg zip --arm64
+          - runner: windows-2022
+            platform: win
+            args: --win nsis --x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Check release version
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: test "$(node -p 'require("./package.json").version')" = "$VERSION"
+      - name: Build installers
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'true'
+        run: npm exec -- electron-builder ${{ matrix.args }} -c.directories.output=release/ota/${{ matrix.platform }} --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.platform }}
+          path: |
+            release/ota/${{ matrix.platform }}/*.dmg
+            release/ota/${{ matrix.platform }}/*.zip
+            release/ota/${{ matrix.platform }}/*.exe
+            release/ota/${{ matrix.platform }}/*.blockmap
+            release/ota/${{ matrix.platform }}/latest*.yml
+          if-no-files-found: error
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installers-*
+          path: release-assets
+          merge-multiple: true
+      - name: Publish and verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+          REPOSITORY: ${{ github.repository }}
+        run: node scripts/release-ci-publish.mjs

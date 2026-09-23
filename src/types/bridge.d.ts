@@ -9,7 +9,7 @@ type QrSnapshotPayload = {
   appVersion: string
   status: '等待扫码'
 }
-type UpdateStatePayload = { phase: 'unavailable' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'error'; version?: string; message?: string }
+type UpdateStatePayload = { phase: 'unavailable' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'error'; version?: string; message?: string; progress?: number }
 declare global {
   interface Window {
     kaida?: {

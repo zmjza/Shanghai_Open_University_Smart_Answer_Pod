@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import os from 'node:os'
 import path from 'node:path'
 
-const repo = 'zmjza/Shanghai_Open_University_Smart_Answer_Pod'
+const repo = 'zmjza/SmartAnswerPod'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
 const config = await readFile(path.join(root, 'electron-builder.yml'), 'utf8')

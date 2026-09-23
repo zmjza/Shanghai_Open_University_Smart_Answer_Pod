@@ -13,7 +13,7 @@
 App 启动时自动检查 GitHub Releases，用户也可在自定义顶部栏点击“检查更新”。
 
 ## 逻辑
-使用现有 electron-updater 从 `zmjza/Shanghai_Open_University_Smart_Answer_Pod` GitHub Releases 检查版本。启动时自动检查，顶部按钮可手动重查；检查中按钮旋转，最新版显示通知，新版用含 Logo 和版本对比的弹窗呈现下载及安装/重启操作。关闭自动下载，下载完成由用户选择“安装并重启”；macOS 显式启用 `autoRunAppAfterInstall`，由 Squirrel.Mac 安装并重新启动应用。任务运行中禁止安装，检查或下载失败保留错误并允许重新检查。开发版明确跳过网络检查。
+使用现有 electron-updater 从 `zmjza/SmartAnswerPod` GitHub Releases 检查版本。启动时自动检查，顶部按钮可手动重查；检查中按钮旋转，最新版显示通知，新版用含 Logo 和版本对比的弹窗呈现下载及安装/重启操作。关闭自动下载，下载完成由用户选择“安装并重启”；macOS 显式启用 `autoRunAppAfterInstall`，由 Squirrel.Mac 安装并重新启动应用。任务运行中禁止安装，检查或下载失败保留错误并允许重新检查。开发版明确跳过网络检查。
 
 发布包必须同时包含 Squirrel.Mac 所需的 DMG 与 ZIP。自动重启配置和流程单测通过不等于 OTA 真机验收；只有用已发布旧版客户端完成更新下载、Squirrel 安装、应用重启并确认版本及用户数据后，才能标记端到端验收通过。 ad-hoc 签名不提供 Apple Developer ID 信任或公证，首次打开可能出现 Gatekeeper 提示。
 

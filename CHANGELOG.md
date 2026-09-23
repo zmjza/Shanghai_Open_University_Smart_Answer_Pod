@@ -1,3 +1,10 @@
+## 1.0.1 — 2026-09-24（OTA 修复版本）
+
+- 更新下载弹窗显示实时进度、速度和已下载大小。
+- OTA 更新源切换到 `zmjza/SmartAnswerPod`。
+- Windows NSIS 安装包创建桌面快捷方式和开始菜单快捷方式。
+- macOS 继续使用 Squirrel.Mac 在已安装应用位置替换旧版本并重启。
+
 ## 1.0.0 — 2026-09-24（正式版本）
 
 - 正式发布开大智达舱桌面安装包与 GitHub OTA 更新清单。
@@ -14,7 +21,7 @@
 
 - 发布产品名称“开大智达舱”；macOS 与 Windows 打包图标均由仓库现有 logo 生成。
 - 顶栏展示当前版本徽记；点击更新检查时显示旋转状态，最新版显示通知，新版以品牌弹窗提供版本对比、下载和安装重启操作。
-- 将 OTA 更新源改为 `zmjza/Shanghai_Open_University_Smart_Answer_Pod`；修复更新服务明确返回无新版时仍显示可下载的问题。
+- 将 OTA 更新源改为 `zmjza/SmartAnswerPod`；修复更新服务明确返回无新版时仍显示可下载的问题。
 - macOS 明确启用 Squirrel 安装后的应用自动重启；自动安装与用户数据保留仍待发布版真机验证。
 - 验证：OTA 流程测试与构建通过；Squirrel 自动安装、重启、用户数据保留及本次 ad-hoc 签名安装包仍待真实发布客户端验收。
 - 限制：macOS 使用 ad-hoc 签名，不具备 Apple Developer ID 信任或公证；首次打开可能出现 Gatekeeper 提示。GitHub Release 和在线 OTA 尚未验证。

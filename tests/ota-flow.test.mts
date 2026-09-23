@@ -62,10 +62,10 @@ test('发布配置同时生成 macOS 自动更新 ZIP 与 DMG', async () => {
   assert.match(config, /- dmg\n\s+- zip/)
   assert.match(config, /- nsis/)
   assert.match(config, /productName: 开大智达舱/)
-  assert.match(config, /repo: Shanghai_Open_University_Smart_Answer_Pod/)
+  assert.match(config, /repo: SmartAnswerPod/)
   assert.match(config, /icon: build\/icon\.png/g)
   const ota = await readFile(new URL('../electron/ota.ts', import.meta.url), 'utf8')
-  assert.match(ota, /repo: 'Shanghai_Open_University_Smart_Answer_Pod'/)
+  assert.match(ota, /repo: 'SmartAnswerPod'/)
 })
 
 test('macOS Squirrel 安装更新后自动重新启动应用', async () => {

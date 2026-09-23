@@ -1,5 +1,5 @@
 export type UpdatePhase = 'unavailable' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'error'
-export type UpdateState = { phase: UpdatePhase; version?: string; message?: string }
+export type UpdateState = { phase: UpdatePhase; version?: string; message?: string; progress?: number }
 
 type Updater = {
   checkForUpdates: () => Promise<{ isUpdateAvailable: boolean; updateInfo?: { version?: string } } | null>
@@ -23,6 +23,14 @@ export class UpdateFlow {
 
   getState() { return this.state }
   private set(state: UpdateState) { this.state = state; this.onStatus?.(state); return state }
+  setProgress(progress: number, message?: string) {
+    if (this.state.phase !== 'downloading') return this.state
+    return this.set({ ...this.state, progress: Math.max(0, Math.min(100, Math.round(progress))), message })
+  }
+  fail(message: string) {
+    if (!['downloading', 'installing'].includes(this.state.phase)) return this.state
+    return this.set({ phase: 'error', version: this.state.version, message })
+  }
 
   check() {
     if (!this.packaged) return Promise.resolve(this.set({ phase: 'unavailable', message: '开发版跳过更新检查' }))
@@ -43,7 +51,7 @@ export class UpdateFlow {
 
   async download() {
     if (this.state.phase !== 'available') return this.state
-    this.set({ phase: 'downloading', version: this.state.version })
+    this.set({ phase: 'downloading', version: this.state.version, progress: 0 })
     try {
       await this.updater.downloadUpdate()
       return this.set({ phase: 'downloaded', version: this.state.version })

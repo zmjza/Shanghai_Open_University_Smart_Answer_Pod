@@ -10,7 +10,7 @@ directories:
 publish:
   provider: github
   owner: zmjza
-  repo: Shanghai_Open_University_Smart_Answer_Pod
+  repo: SmartAnswerPod
 mac:
   icon: build/icon.png
   identity: "-"
@@ -25,6 +25,9 @@ win:
   target:
     - nsis
   artifactName: kaida-auto-quiz-${version}-Windows.${ext}
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: 开大智达舱
 asar: true
 asarUnpack:
   - node_modules/playwright/**/*

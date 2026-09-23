@@ -2,10 +2,27 @@
 
 目标仓库：`zmjza/SmartAnswerPod`；分支：`main`。
 
+## 1.0.2 正式发布与真机起点
+
+- 提交与 Tag：`45c5de4bfd8d0c799bcc008067471ecd9cd7eaee`、`v1.0.2`；GitHub `origin/main` 与 Tag 均指向该提交。统一发布命令退出码 0，Release 为非草稿、非预发布，8 项资产齐全并经脚本回下载 SHA-256 校验。
+- Release：`https://github.com/zmjza/SmartAnswerPod/releases/tag/v1.0.2`。远端资产（文件名 / 字节 / SHA-256）：
+  - `kaida-auto-quiz-1.0.2-macOS.dmg` / 123288865 / `45e32a959aebbfb63ccf3cff3e9b7963d69e0d145583984c66da7e994e1c68b1`
+  - `kaida-auto-quiz-1.0.2-macOS.dmg.blockmap` / 130454 / `3aadbd0f2dad9745c69b7efe08903b124ded01a4632fbb3fa08dfc5567ca8eec`
+  - `kaida-auto-quiz-1.0.2-macOS.zip` / 122247830 / `dd65c4446a7cccb18e3e55ab5f581547b44e223d1d8cb9867ee7a98d064a5953`
+  - `kaida-auto-quiz-1.0.2-macOS.zip.blockmap` / 126206 / `b0db4c3f1bc633493bec9efebf137f69e7a8f6f9c2a7ec236b0821231556084e`
+  - `kaida-auto-quiz-1.0.2-Windows.exe` / 94533312 / `4c2e6a6ee11b951fe7c86ba226ff5a7cdda96ae4bb18d5b974175440ff65c744`
+  - `kaida-auto-quiz-1.0.2-Windows.exe.blockmap` / 98340 / `74d0c0423cf2716c6f2887bac1ea1b697884b88f0f8b25afa5e95cce9d2e85b5`
+  - `latest-mac.yml` / 521 / `8775d10eedbb15ea51e353af22b411a98e074b4f2fb62369aca09fb6c86a0377`
+  - `latest.yml` / 362 / `e42b2b51d9fdab0f66c3a981c6e64905f1a0898205f780bd3d19776bfc1fd118`
+- 官方 macOS ZIP 另行下载校验：`kaida-auto-quiz-1.0.2-macOS.zip` 为 122247830 字节，SHA-256 `dd65c4446a7cccb18e3e55ab5f581547b44e223d1d8cb9867ee7a98d064a5953`，与 GitHub 资产摘要和 `latest-mac.yml` 的版本、大小、SHA-512 一致；ZIP 完整性通过。
+- 正式 ZIP 安装到 `/Applications/开大智达舱.app`，包内版本 1.0.2、ad-hoc 签名校验通过，Finder 应用程序列表可见。默认用户数据目录启动时主线程停在 macOS 安全存储解密，SecurityAgent 出现；没有修改、清理或读取该用户数据。
+- 使用同一正式 App bundle 和独立测试数据目录启动后，`@电脑` 读到界面版本徽记 v1.0.2；点击“检查更新”后出现“当前已是最新版本”。此测试仍连接真实 GitHub，未使用 mock；但原用户数据保留和默认目录运行仍未验收。
+- 下一阶段：发布唯一补丁版 1.0.3，再由此正式 1.0.2 客户端实测发现、下载进度、安装、重启和数据保留。
+
 ## 远端复核（覆盖下方过时的候选状态）
 
 - 1.0.2 发布前验证：OTA 测试 8/8、P0 测试 75/75、CHG-026 UI E2E 与应用构建通过。发现 Windows 快捷方式选项误放在 `win`，原 NSIS 构建配置校验失败；移到 `nsis` 后同一 Windows x64 构建成功。macOS ARM64 DMG/ZIP 构建成功，App bundle 的 ad-hoc 签名严格校验通过，DMG 含 `/Applications` 链接。此处仅是本机预构建证据，不是 GitHub 正式资产或 Windows 真机验收。
-- 1.0.2 尚未发布，正式 Release 资产、在线最新版通知及 OTA 安装重启均待验证。
+- 以上是 1.0.2 发布前的候选状态；正式发布和最新版通知结果见本页顶部，OTA 安装重启仍待验证。
 - 本机预构建安装包为临时产物；正式发布必须从版本提交重新构建并回下载核对，不复用预构建包。
 
 - `v0.8.0` 已发布，Tag 指向 `f981ad1`；`v0.9.0` 已发布，Tag 指向 `146db9b`；`v1.0.0` 已发布，Tag 指向 `37c177b`。三版 Release 均为非草稿，各有 macOS ARM64 DMG/ZIP、Windows x64 NSIS EXE、对应 blockmap 与 `latest-mac.yml`/`latest.yml` 共 8 项资产。

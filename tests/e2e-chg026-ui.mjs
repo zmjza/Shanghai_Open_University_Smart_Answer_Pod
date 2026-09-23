@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { _electron as electron } from 'patchright'
 import { pageCountForCourses, pageForCourse, pageSlice } from '../electron/core/course-pager.ts'
 
 const userData = mkdtempSync(join(tmpdir(), 'kaida-chg026-ui-'))
+const version = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version
 const app = await electron.launch({ args: ['.'], env: { ...process.env, VITE_DEV_SERVER_URL: '', KAIDA_E2E_USERDATA: userData, KAIDA_E2E_MOCK_COURSES: '1' } })
 const renderer = (source) => app.evaluate(({ BrowserWindow }, script) => BrowserWindow.getAllWindows()[0].webContents.executeJavaScript(script), source)
 try {
@@ -77,7 +78,7 @@ try {
   for (const account of accounts) await renderer(`window.kaida.removeAccount(${JSON.stringify(account.local_id)})`)
   assert.equal((await renderer('window.kaida.listAccounts()')).length, 0, '模拟账号清理后仍有残留')
   assert.equal(await page.locator('header img[alt="开大智达舱 Logo"]').evaluate((img) => img.complete && img.naturalWidth > 0), true)
-  await page.getByText('v0.8.0', { exact: true }).waitFor()
+  await page.getByText(`v${version}`, { exact: true }).waitFor()
   await page.getByText('设置', { exact: true }).first().click()
   assert.equal(await page.locator('#supabase-url').isVisible(), false)
   assert.equal(await page.locator('#supabase-anon').isVisible(), false)

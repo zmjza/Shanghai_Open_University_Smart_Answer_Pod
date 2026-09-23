@@ -21,11 +21,6 @@ autoUpdater.on('download-progress', progress => {
 autoUpdater.on('error', error => {
   flow.fail(error instanceof Error ? error.message : '安装器报告未知错误')
 })
-autoUpdater.on('download-progress', progress => {
-  const percent = Math.round(progress.percent)
-  const speed = progress.bytesPerSecond > 0 ? ` · ${(progress.bytesPerSecond / 1024 / 1024).toFixed(1)} MB/s` : ''
-  flow.setProgress(percent, `${percent}% · 已下载 ${(progress.transferred / 1024 / 1024).toFixed(1)} / ${(progress.total / 1024 / 1024).toFixed(1)} MB${speed}`)
-})
 
 export function currentUpdateState() { return flow.getState() }
 export function downloadUpdate() { return flow.download() }

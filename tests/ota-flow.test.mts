@@ -61,6 +61,7 @@ test('发布配置同时生成 macOS 自动更新 ZIP 与 DMG', async () => {
   assert.match(config, /provider: github/)
   assert.match(config, /- dmg\n\s+- zip/)
   assert.match(config, /- nsis/)
+  assert.match(config, /nsis:\n  createDesktopShortcut: always\n  createStartMenuShortcut: true\n  shortcutName: 开大智达舱/)
   assert.match(config, /productName: 开大智达舱/)
   assert.match(config, /repo: SmartAnswerPod/)
   assert.match(config, /icon: build\/icon\.png/g)
@@ -73,6 +74,12 @@ test('macOS Squirrel 安装更新后自动重新启动应用', async () => {
   const ota = await readFile(new URL('../electron/ota.ts', import.meta.url), 'utf8')
   assert.match(ota, /autoUpdater\.autoRunAppAfterInstall\s*=\s*true/)
   assert.match(ota, /autoUpdater\.autoInstallOnAppQuit\s*=\s*false/)
+})
+
+test('下载进度事件只注册一次，避免重复广播', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const ota = await readFile(new URL('../electron/ota.ts', import.meta.url), 'utf8')
+  assert.equal(ota.match(/autoUpdater\.on\('download-progress'/g)?.length, 1)
 })
 
 test('发布配置使用 ad-hoc bundle 签名且发布门禁不依赖 Developer ID', async () => {

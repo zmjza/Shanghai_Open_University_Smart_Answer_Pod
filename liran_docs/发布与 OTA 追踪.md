@@ -2,6 +2,18 @@
 
 目标仓库：`zmjza/SmartAnswerPod`；分支：`main`。
 
+## 远端复核（覆盖下方过时的候选状态）
+
+- 1.0.2 发布前验证：OTA 测试 8/8、P0 测试 75/75、CHG-026 UI E2E 与应用构建通过。发现 Windows 快捷方式选项误放在 `win`，原 NSIS 构建配置校验失败；移到 `nsis` 后同一 Windows x64 构建成功。macOS ARM64 DMG/ZIP 构建成功，App bundle 的 ad-hoc 签名严格校验通过，DMG 含 `/Applications` 链接。此处仅是本机预构建证据，不是 GitHub 正式资产或 Windows 真机验收。
+- 1.0.2 尚未发布，正式 Release 资产、在线最新版通知及 OTA 安装重启均待验证。
+- 本机预构建安装包为临时产物；正式发布必须从版本提交重新构建并回下载核对，不复用预构建包。
+
+- `v0.8.0` 已发布，Tag 指向 `f981ad1`；`v0.9.0` 已发布，Tag 指向 `146db9b`；`v1.0.0` 已发布，Tag 指向 `37c177b`。三版 Release 均为非草稿，各有 macOS ARM64 DMG/ZIP、Windows x64 NSIS EXE、对应 blockmap 与 `latest-mac.yml`/`latest.yml` 共 8 项资产。
+- 这三版的远端元数据和资产清单已用 GitHub API 重新确认。历史记录没有证明 0.8.0 正式客户端曾从 GitHub 发现 0.9.0，也没有证明 Squirrel 安装重启及用户数据保留；这些层级仍待真实客户端验收。现在线上最新版已高于 0.9.0，0.8.0 客户端再检查不会返回 0.9.0，不能补写历史验收。
+- 远端仅有 GitHub `origin`；本机存在大量与本次发布无关的未跟踪文档、测试和避坑库改动，本次版本提交必须按文件边界暂存，保持它们原样。
+- `1.0.1` 源码提交 `2f631af` 已推送到 `main`，截至本次复核尚无 `v1.0.1` Tag 或 Release。该提交把 OTA 源改为 `SmartAnswerPod`，增加下载进度和 Windows 桌面快捷方式；进度监听重复注册的问题在后续修复中处理。
+- macOS 更新仍采用 electron-updater 的 Squirrel.Mac，安装目标是启动更新的应用所在位置；要在 Launchpad 可见，应先把初装应用放入 `/Applications`。Windows 的 NSIS 选项为安装应用并创建桌面快捷方式，桌面显示的是快捷方式而非把程序文件放到桌面。Windows 真机安装/OTA 无法在当前 macOS 主机实测。
+
 ## 0.8.0 候选
 
 - 提交：`838ea4c`（`feat: prepare 0.8.0 branded OTA release`），`main` 已快进推送至 GitHub。Tag / Release 尚未创建；GitHub 远端当前无版本 Tag 和 Release。

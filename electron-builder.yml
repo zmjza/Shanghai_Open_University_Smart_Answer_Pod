@@ -25,6 +25,7 @@ win:
   target:
     - nsis
   artifactName: kaida-auto-quiz-${version}-Windows.${ext}
+nsis:
   createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: 开大智达舱

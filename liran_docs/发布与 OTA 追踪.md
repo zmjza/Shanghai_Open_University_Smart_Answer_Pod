@@ -2,6 +2,13 @@
 
 目标仓库：`zmjza/SmartAnswerPod`；分支：`main`。
 
+## 1.0.3 正式发布及 1.0.2 → 1.0.3 真机失败
+
+- 提交/Tag：`d6e38b5d4174a781ac4677656c4b0c5d3db27a26` / `v1.0.3`；GitHub main 与 Tag 指向同一提交。统一发布命令成功，Release `https://github.com/zmjza/SmartAnswerPod/releases/tag/v1.0.3` 为非草稿、非预发布，8 项资产经脚本上传和回下载 SHA-256 校验。macOS ZIP 为 122247148 字节，SHA-256 `9cf7f2e1a73acf1f8dd636c52731ef0ca904884d284bc8fcd64fdc793ca148fc`。
+- 正式 1.0.2 客户端从 GitHub 发现 1.0.3 并显示版本弹窗；点击下载后界面出现 0% 与完成状态，缓存 ZIP 的 122247148 字节、SHA-256 与远端 Release、SHA-512 与更新清单一致。由于下载很快，未捕捉到连续递增的进度帧。
+- 点击“安装并重启”后，Squirrel.Mac 报“代码未能满足指定的代码要求”，没有替换或重启。`/Applications` 仍为 1.0.2；原用户加密数据文件 SHA-256 保持 `d437a3848899db4c18328855b43453f01dd87d40c745d422aca565f605f05be9`，但无法证明业务数据可解密使用。
+- 根因见 `docs/pitfalls/ota-release.md`：旧版默认 ad-hoc designated requirement 为版本相关 CDHash。1.0.4 将由 electron-builder 使用稳定的签名要求作为手动安装过渡版；1.0.2/1.0.3 已发布包不能原地修复。
+
 ## 1.0.2 正式发布与真机起点
 
 - 提交与 Tag：`45c5de4bfd8d0c799bcc008067471ecd9cd7eaee`、`v1.0.2`；GitHub `origin/main` 与 Tag 均指向该提交。统一发布命令退出码 0，Release 为非草稿、非预发布，8 项资产齐全并经脚本回下载 SHA-256 校验。

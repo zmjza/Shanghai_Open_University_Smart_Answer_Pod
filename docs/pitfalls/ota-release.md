@@ -1,5 +1,16 @@
 # OTA 与发布避坑
 
+## 默认 ad-hoc CDHash 会阻止 Squirrel.Mac 跨版本安装
+
+- 现象：正式 1.0.2 检测到 1.0.3，下载后 ZIP 的远端 SHA-256 与更新清单 SHA-512 均一致，但点击安装报“代码未能满足指定的代码要求”；`/Applications` 仍为 1.0.2。
+- 根因：Squirrel.Mac 从当前应用读取 designated requirement 并用它验证新 bundle。1.0.2 与 1.0.3 的默认 ad-hoc requirement 分别是不同的 CDHash，因而新包无法满足旧包要求。
+- 正确做法：由 electron-builder 在签名时通过 `mac.requirements` 设置跨版本稳定的 identifier 要求，并包含签名时使用该要求的内嵌 Helper、Framework 与原生二进制 ID；必须保持 `identity: "-"` 和完整 bundle 的严格验签。已装 1.0.2/1.0.3 无法追改签名要求，需手动安装新基线版本一次。
+- 验证方式：1.0.2 → 1.0.3 真机复现拒绝；为 1.0.4 预构建设置要求后，`codesign --verify --deep --strict` 通过，主应用 designated requirement 不再是 CDHash；后续跨版本 Squirrel 安装仍待正式包实测。
+- 禁止事项：不要覆盖旧 Tag/资产、只关闭签名或手工对成品 `codesign --deep`；不要将仅按 identifier 的 ad-hoc 要求说成 Developer ID 身份验证。
+- 相关文件或命令：`electron-builder.yml`、`build/requirements.mac.txt`、`codesign -d -r-`、`codesign --verify --deep --strict`、Squirrel.Mac `SQRLCodeSignature.m`。
+- 适用范围：macOS ad-hoc 签名应用的 Squirrel 自动更新。
+- 来源：正式客户端界面错误、1.0.2/1.0.3 签名检查、Squirrel.Mac 源码与 1.0.4 本地预构建。
+
 ## 旧本机数据的安全存储授权可阻塞正式客户端启动
 
 - 现象：正式 1.0.2 安装在 `/Applications` 后进程存在，但桌面窗口读取超时。

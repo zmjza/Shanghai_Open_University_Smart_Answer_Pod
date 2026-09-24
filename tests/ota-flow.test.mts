@@ -76,6 +76,16 @@ test('macOS Squirrel 安装更新后自动重新启动应用', async () => {
   assert.match(ota, /autoUpdater\.autoInstallOnAppQuit\s*=\s*false/)
 })
 
+test('ad-hoc 更新使用跨版本稳定的应用要求', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const config = await readFile(new URL('../electron-builder.yml', import.meta.url), 'utf8')
+  const requirement = await readFile(new URL('../build/requirements.mac.txt', import.meta.url), 'utf8')
+  assert.match(config, /identity: "-"\n  requirements: build\/requirements\.mac\.txt/)
+  assert.match(requirement, /^designated => identifier "org\.kaida\.autoquiz"/)
+  assert.match(requirement, /identifier "org\.kaida\.autoquiz\.helper\.Renderer"/)
+  assert.match(requirement, /identifier "com\.github\.Squirrel"/)
+})
+
 test('下载进度事件只注册一次，避免重复广播', async () => {
   const { readFile } = await import('node:fs/promises')
   const ota = await readFile(new URL('../electron/ota.ts', import.meta.url), 'utf8')

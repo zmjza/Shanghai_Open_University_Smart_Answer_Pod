@@ -14,6 +14,7 @@ publish:
 mac:
   icon: build/icon.png
   identity: "-"
+  requirements: build/requirements.mac.txt
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   target:

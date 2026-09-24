@@ -1,5 +1,27 @@
 # OTA 与发布避坑
 
+## 差分下载进度小于完整 ZIP 并非包不完整
+
+- 现象：1.0.5 → 2.0.0 真机更新时界面显示总传输约 11.8 MB，GitHub 正式 macOS ZIP 为 122250811 字节。
+- 根因：MacUpdater 利用缓存的旧版 `update.zip` 与 Release blockmap 执行差分下载，并在本机重建目标版本的完整 ZIP；进度显示的是本次网络传输量。
+- 正确做法：向用户区分传输量与重建后的安装包大小；安装前后校验缓存中完整 ZIP 的大小及 SHA-256 与 GitHub 正式资产相同。
+- 验证方式：捕获进度 75%、已下载 8.8/11.8 MB、2.0 MB/s；重建后的 `pending` ZIP 和 `update.zip` 均为 122250811 字节，SHA-256 均为 `31e55bbfd27ad49afbca4ca2c9f91015fcd5d3e30599819de7764e660f3124f5`，与远端一致；Squirrel 原位安装并重启后界面显示 v2.0.0。
+- 禁止事项：不要把较小的差分下载量当作缺包，也不要仅凭进度 100% 就跳过完整包哈希校验。
+- 相关文件或命令：`node_modules/electron-updater/out/MacUpdater.js`、`latest-mac.yml`、`shasum -a 256`。
+- 适用范围：macOS electron-updater 差分更新。
+- 来源：正式 1.0.5 客户端的 2.0.0 OTA 界面、更新器缓存与 GitHub Release 资产校验。
+
+## Release 批量回下载 EOF 不要触发二次发布
+
+- 现象：2.0.0 的 8 项资产已经由统一脚本上传并核对 digest，Release 已转正式；最后的 `gh release download` 报 `unexpected EOF`，统一命令以退出码 1 结束，回下载目录留下未完成的大文件。
+- 根因：批量下载的连接提前结束；确切网络环节信息不全，待人工补充。不能据此认定远端资产缺失，也不能假定资产完整。
+- 正确做法：先查远端 Release 状态、Tag、资产名称、大小和 digest；若已正式发布，禁止重跑会重新构建或替换资产的发布命令。将每个大文件单独重新下载到新目录，小文件另下，逐项计算 SHA-256 并与远端 digest 比对，再检查 OTA 清单内大小和 SHA-512。
+- 验证方式：2.0.0 的 DMG、ZIP、EXE 分别重新下载成功，8 项本地 SHA-256 与 GitHub digest 一致；两个清单的版本及 3 个安装包的大小、SHA-512 匹配，ZIP/DMG 完整性通过。
+- 禁止事项：不要因统一命令退出 1 就盲目再发布、覆盖现有 Tag/Release 或混用两次构建产物；也不要因资产显示 uploaded 就跳过远端下载校验。
+- 相关文件或命令：`scripts/release-publish.mjs`、`gh release download v2.0.0 --pattern <单个大文件>`、`shasum -a 256`。
+- 适用范围：GitHub Release 大文件上传后的最终回下载验收。
+- 来源：2.0.0 发布脚本退出信息、GitHub Release API、逐文件回下载及哈希校验。
+
 ## Squirrel 安装成功不等于更新器安装包缓存已清理
 
 - 现象：1.0.4 → 1.0.5 真机 OTA 已原位替换并重启，但 macOS 更新缓存仍含约 117 MB 的 `pending/kaida-auto-quiz-1.0.5-macOS.zip` 和约 128 MB 的 `update.zip`。

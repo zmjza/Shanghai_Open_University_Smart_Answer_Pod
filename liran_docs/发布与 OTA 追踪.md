@@ -2,6 +2,23 @@
 
 目标仓库：`zmjza/SmartAnswerPod`；分支：`main`。
 
+## 2.0.0 正式发布与 1.0.5 → 2.0.0 真机 OTA
+
+- 版本提交/Tag：`014bbf8a46a1dad00ba0fa3c714e7402b57605bc` / `v2.0.0`。GitHub main 发布时和 Tag 指向该提交；Release `https://github.com/zmjza/SmartAnswerPod/releases/tag/v2.0.0` 为非草稿、非预发布。发布后仅文档可能另有提交，不能把后续 main 提交当作发布包来源。
+- 执行 `npm run build`、`npm run test:p0`（75/75）、`node --experimental-strip-types --test tests/ota-flow.test.mts`（9/9）、`npm run test:e2e:chg026-ui` 均通过；macOS ARM64 DMG/ZIP 与 Windows x64 NSIS 预构建退出 0，macOS 包内版本 2.0.0、图标、严格签名、ZIP/DMG 完整性及 Windows x64 主程序检查通过。官方 npm audit 仍报 `xlsx` 一项 high、无上游修复。
+- 统一发布脚本从同一提交重新构建，8 项资产串行上传并逐项校验 GitHub digest。脚本在最终批量回下载时因 `unexpected EOF` 退出 1，此时 Release 已转正式；没有重跑发布脚本或更换资产。随后逐项只读下载全部资产，重算 SHA-256 与远端 digest 一致，macOS ZIP/DMG 完整性及两个远端清单内安装包的大小、SHA-512 均通过。
+- 资产（名称 / 字节 / SHA-256）：
+  - `kaida-auto-quiz-2.0.0-macOS.dmg` / 123283281 / `11348d387b9754311d2337b24da49130479195700e0af917618879dda56927e8`
+  - `kaida-auto-quiz-2.0.0-macOS.dmg.blockmap` / 130099 / `1b164bb6ceffc5cefb1543d9f1df31f93eb06a6d6ccb97c8403f4c11241763e8`
+  - `kaida-auto-quiz-2.0.0-macOS.zip` / 122250811 / `31e55bbfd27ad49afbca4ca2c9f91015fcd5d3e30599819de7764e660f3124f5`
+  - `kaida-auto-quiz-2.0.0-macOS.zip.blockmap` / 125532 / `92543bfb5a97ceb14459f563dc2660cdab8a6b1b1b9b2ef988bae2bfe2e06195`
+  - `kaida-auto-quiz-2.0.0-Windows.exe` / 94533217 / `8700166fc913b9e422ab1944b08df90b4421b06ea0fc360d18e6aef2ded5a52e`
+  - `kaida-auto-quiz-2.0.0-Windows.exe.blockmap` / 98354 / `f3ee92cdbe16f074b10bfbbc1bbbd03ae846e97c5663fa52021bae4f28e69444`
+  - `latest-mac.yml` / 521 / `2bdf169e2df2b4b1318d2e1e23653218fc4de6edd7cfae94e011f086c5cf9887`
+  - `latest.yml` / 362 / `3e9675758250553e3f28b0406c6d279bb77093f25535bbe052eba593b6d41c4e`
+- 正式 1.0.5 客户端从 GitHub 发现 2.0.0，弹窗显示 `v1.0.5 → v2.0.0`；差分下载捕获真实进度 75%、8.8/11.8 MB、2.0 MB/s。更新器重建的完整 ZIP 为 122250811 字节，SHA-256 与远端完全一致。用户操作安装后 `/Applications/开大智达舱.app` 原位变为 2.0.0，新进程从该路径启动，界面徽记显示 v2.0.0，严格嵌套验签通过。
+- 原用户加密文件升级前后 SHA-256 一致，但账号页升级前为空，无法单靠文件哈希证明业务数据解密可用；此项仍为未验证。Windows 只有构建与清单验证，没有 Windows 真机。用户接受保留更新器 ZIP 缓存。
+
 ## 1.0.5 正式发布与 1.0.4 → 1.0.5 真机 OTA
 
 - 提交/Tag：`32afaf279ffbf1b5e4d2f7fd99c2b78587de0ce3` / `v1.0.5`；GitHub main 与 Tag 均指向此提交。统一发布命令成功，Release `https://github.com/zmjza/SmartAnswerPod/releases/tag/v1.0.5` 为非草稿、非预发布，8 项资产经脚本回下载校验。

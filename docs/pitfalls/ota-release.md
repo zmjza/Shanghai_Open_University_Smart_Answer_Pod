@@ -1,5 +1,16 @@
 # OTA 与发布避坑
 
+## 2.1.0 内置 Chromium 后安装包变大，本机直传慢时整套切换云端构建
+
+- 现象：内置 Chromium 后 macOS DMG 约 302 MB、Windows EXE 约 240 MB；本机统一发布器首个资产十余分钟仅发送几十 MB，GitHub 草稿一直无完整资产。
+- 根因：本机到 GitHub 上传连接吞吐过低；具体网络链路瓶颈未定位，不能归咎于 GitHub API 或发布脚本。
+- 正确做法：先停止未完成的单文件请求，只读确认草稿资产集合为空、Tag 不存在，再从同一最终提交让仓库 Actions 的 macOS/Windows 原生运行器各自准备 Chromium、生成成套资产并串行上传；两平台清单与回下载摘要全部通过后公开。
+- 验证方式：2.1.0 本机两次停止后草稿资产均为空；Actions 运行 `35999159229` 成功，远端 `v2.1.0` 与 main 同指 `160b49d`，8 项资产为 uploaded，云端回下载 SHA-256 与 GitHub digest 一致。
+- 禁止事项：不要在本机与 Actions 的两批产物之间混搭；不要因本机脚本被中断就盲目重跑或声称已发布；不要以资产数量代替哈希验证。
+- 相关文件或命令：`.github/workflows/release.yml`、`scripts/release-publish.mjs`、`scripts/release-ci-publish.mjs`、`gh run view 35999159229`。
+- 适用范围：GitHub 大体积 Electron 安装包发布与草稿恢复。
+- 来源：2.1.0 本机直传观测、空草稿核对、Actions 发布与远端校验。
+
 ## 2.1.0 浏览器随包必须保留 macOS 相对符号链接并检查成品
 
 - 现象：旧版朋友电脑运行时报 `Executable doesn't exist`；首次预构建即使配置了浏览器资源，包内仍无 Chromium；修正资源映射后首次 macOS 签名报 Framework 文件不存在。

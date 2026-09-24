@@ -2,6 +2,22 @@
 
 目标仓库：`zmjza/SmartAnswerPod`；分支：`main`。
 
+## 2.1.0 浏览器随包发布
+
+- 修复提交 `1f09a2456288b3a487d0a4fbdd8b0bf466f4fd14`；最终构建/Tag 提交 `160b49d76b9a38d3a8483a5b7c0fcf6321936476`。发布时 GitHub `main` 与 `v2.1.0` 均指向后者；Release `https://github.com/zmjza/SmartAnswerPod/releases/tag/v2.1.0` 为非草稿、非预发布。后续文档提交不改变安装包来源。
+- 本地执行 `npm run test:p0`（75/75）、`npm run build`、macOS ARM64/Windows x64 预构建；macOS App 严格验签且从无本机浏览器缓存的隔离环境启动包内 Chromium，隔离数据目录中直接启动 2.1.0 成品并从正式更新源收到“最新版 2.1.0”日志；Windows x64 包内 `chrome.exe` 为 PE32+ x86-64。官方 npm audit 仍报 `xlsx` 1 项 high、无可用修复版本。
+- 两次本机统一发布命令均在首件约 300 MB 安装包上传期间被主动停止：本机网络向 GitHub 直传约几十 MB 用去数分钟，远端草稿始终无完整资产。只读核对草稿资产为空、Tag 不存在后，改用 GitHub Actions 原生 macOS/Windows 运行器完成同一最终提交的整套构建和上传；工作流 `https://github.com/zmjza/SmartAnswerPod/actions/runs/35999159229` 成功。两平台 `Verify bundled Chromium`、8 项资产、manifest 大小/SHA-512 和云端逐项回下载 SHA-256 均通过。
+- 资产（名称 / 字节 / GitHub SHA-256 digest）：
+  - `kaida-auto-quiz-2.1.0-macOS.dmg` / 302473449 / `948d0168287f49e30256e452bacd20913d3c83a1381c1c8650d7660624bac9b4`
+  - `kaida-auto-quiz-2.1.0-macOS.dmg.blockmap` / 315270 / `e8debf1c9732a624df710ee31fe2204293a05fa37dd7b64c9d12af0048592940`
+  - `kaida-auto-quiz-2.1.0-macOS.zip` / 301600063 / `1802cfb4b7d8adff1d41f9ae41243824b858db62e4e20c61443f9d89fd0ad627`
+  - `kaida-auto-quiz-2.1.0-macOS.zip.blockmap` / 312642 / `872c7bfccd232aa650511e9888ffe798fa6913c32e11e00a8f456acb27e69b0a`
+  - `kaida-auto-quiz-2.1.0-Windows.exe` / 240134472 / `49d66efdab418e69d6e81dd523e6eac7d24251180b31851e7dc22b94223c2a2d`
+  - `kaida-auto-quiz-2.1.0-Windows.exe.blockmap` / 249151 / `854502f101b01066b5eb1b6a9ccfb0b516a10adae333f5baba0b33d9db696350`
+  - `latest-mac.yml` / 521 / `c4e1cef59c39dfd29b4106fe117fe1c3a294140ceb8017b8ecd1df2953d5cb19`
+  - `latest.yml` / 363 / `e997111555e7e17c66dcd713939c33eb41eff0c22d423d82948edd3d47135444`
+- OTA 层级：GitHub 两平台清单可读，版本与资产大小匹配；从 `/Applications` 启动的正式 2.0.0 客户端使用隔离数据目录，自动检查日志真实发现 2.1.0 ZIP/DMG。尚未点击 UI 下载、安装重启或回读用户数据。Windows 安装与答题功能也尚无 Windows 真机验收。朋友无需安装 Node.js、npm 或 Chrome，但需自行添加学生账号、配置 AI API Key，并可正常访问所需在线服务；macOS ad-hoc 未公证，首次打开可能需按系统提示放行。
+
 ## 2.0.0 正式发布与 1.0.5 → 2.0.0 真机 OTA
 
 - 版本提交/Tag：`014bbf8a46a1dad00ba0fa3c714e7402b57605bc` / `v2.0.0`。GitHub main 发布时和 Tag 指向该提交；Release `https://github.com/zmjza/SmartAnswerPod/releases/tag/v2.0.0` 为非草稿、非预发布。发布后仅文档可能另有提交，不能把后续 main 提交当作发布包来源。

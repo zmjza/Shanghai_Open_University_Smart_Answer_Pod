@@ -14,7 +14,7 @@ if (existsSync(destination)) throw new Error(`浏览器输出目录已存在：$
 const cache = await mkdtemp(path.join(os.tmpdir(), `kaida-browsers-${target}-`))
 const env = { ...process.env, PLAYWRIGHT_BROWSERS_PATH: cache }
 if (target === 'win-x64') env.PLAYWRIGHT_HOST_PLATFORM_OVERRIDE = 'win64'
-const install = spawnSync('npx', ['patchright', 'install', 'chromium'], { cwd: root, env, stdio: 'inherit' })
+const install = spawnSync(process.execPath, [path.join(root, 'node_modules/patchright/cli.js'), 'install', 'chromium'], { cwd: root, env, stdio: 'inherit' })
 if (install.status !== 0) throw new Error(`${target} Chromium 下载失败`)
 const browser = (await readdir(cache, { withFileTypes: true }))
   .find(entry => entry.isDirectory() && /^chromium-\d+$/.test(entry.name))

@@ -18,9 +18,11 @@ jobs:
         include:
           - runner: macos-15
             platform: mac
+            browser: mac-arm64
             args: --mac dmg zip --arm64
           - runner: windows-2022
             platform: win
+            browser: win-x64
             args: --win nsis --x64
     runs-on: ${{ matrix.runner }}
     steps:
@@ -29,7 +31,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm run build
       - name: Check release version
         shell: bash
@@ -40,7 +42,19 @@ jobs:
         shell: bash
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'true'
-        run: npm exec -- electron-builder ${{ matrix.args }} -c.directories.output=release/ota/${{ matrix.platform }} --publish never
+          KAIDA_BROWSER_DIR: release/browsers
+        run: |
+          node scripts/prepare-browsers.mjs ${{ matrix.browser }} release/browsers
+          npm exec -- electron-builder ${{ matrix.args }} -c.directories.output=release/ota/${{ matrix.platform }} --publish never
+      - name: Verify bundled Chromium
+        shell: bash
+        run: |
+          if [[ '${{ matrix.platform }}' == mac ]]; then
+            test -x release/ota/mac/mac-arm64/开大智达舱.app/Contents/Resources/browsers/chromium-*/chrome-mac-arm64/'Google Chrome for Testing.app'/Contents/MacOS/'Google Chrome for Testing'
+            codesign --verify --deep --strict release/ota/mac/mac-arm64/开大智达舱.app
+          else
+            test -f release/ota/win/win-unpacked/resources/browsers/chromium-*/chrome-win64/chrome.exe
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: installers-${{ matrix.platform }}

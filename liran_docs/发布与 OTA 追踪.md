@@ -2,6 +2,22 @@
 
 目标仓库：`zmjza/SmartAnswerPod`；分支：`main`。
 
+## 1.0.5 正式发布与 1.0.4 → 1.0.5 真机 OTA
+
+- 提交/Tag：`32afaf279ffbf1b5e4d2f7fd99c2b78587de0ce3` / `v1.0.5`；GitHub main 与 Tag 均指向此提交。统一发布命令成功，Release `https://github.com/zmjza/SmartAnswerPod/releases/tag/v1.0.5` 为非草稿、非预发布，8 项资产经脚本回下载校验。
+- 资产（名称 / 字节 / SHA-256）：
+  - `kaida-auto-quiz-1.0.5-macOS.dmg` / 123283215 / `1af49533806175eefddfa09d4e524e504a7a2db5350ef37538f2944dfda6e2ef`
+  - `kaida-auto-quiz-1.0.5-macOS.dmg.blockmap` / 129822 / `8e3f3c1a036b6440f49c35b3fd3c02caa6d5e6a13389f55f4f30c74bf380a18e`
+  - `kaida-auto-quiz-1.0.5-macOS.zip` / 122250772 / `e543e2ae5967e4a1fba0579aab516d6a63de10cca3e1c8512ed0b4286342ad28`
+  - `kaida-auto-quiz-1.0.5-macOS.zip.blockmap` / 125703 / `7c490f30f5244cc8f81666440af711d28b424da324a263d4abb8bd4855125f3e`
+  - `kaida-auto-quiz-1.0.5-Windows.exe` / 94533261 / `c21200bac04113e17b25153b9e8862bd57ed440e6da8735858048e73b0583561`
+  - `kaida-auto-quiz-1.0.5-Windows.exe.blockmap` / 98363 / `a42b3c51651b6558cbdacd9b2d5b37bf8bb0a81fd808a5d063c9bb2b42c4b7e0`
+  - `latest-mac.yml` / 521 / `64a49c5d623e2e5be70bbd37fc16d61ba73d2089aa182679f21e19ccb4746890`
+  - `latest.yml` / 362 / `96d2d114abfee4f318d22dc7a3e05a6335a1475d6a6c48a20fb56a3043cf5798`
+- 正式 1.0.4 客户端从 GitHub 发现 `v1.0.5` 并显示弹窗，点击下载显示 0% 与完成态；缓存 ZIP 大小及 SHA-256 与远端一致。未捕获连续递增的进度帧。
+- 用户点击安装后，`/Applications/开大智达舱.app` 的版本变为 1.0.5，严格嵌套验签成功；新的正式进程从该路径运行，界面徽记显示 `v1.0.5`。因此本次 macOS 原位替换与自动重启已实测通过。
+- 更新器缓存仍含 `update.zip` 与 `pending/kaida-auto-quiz-1.0.5-macOS.zip`，合计约 245 MB；用户明确接受保留缓存，本次不再视为阻塞。原用户加密文件 SHA-256 前后未变，账号页显示“尚未添加学生账号”；文件是否能解密使用、原本是否有账号均无证据，数据可用性未验收。Windows 无真机。
+
 ## 1.0.4 正式发布与新基线安装
 
 - 提交/Tag：`3a2e42406e41d59e34a050ff272814c9a9824088` / `v1.0.4`；GitHub main 与 Tag 指向同一提交。统一发布命令退出码 0，Release `https://github.com/zmjza/SmartAnswerPod/releases/tag/v1.0.4` 为非草稿、非预发布；8 项资产由脚本回下载校验。

@@ -1,5 +1,17 @@
 # OTA 与发布避坑
 
+## Squirrel 安装成功不等于更新器安装包缓存已清理
+
+- 现象：1.0.4 → 1.0.5 真机 OTA 已原位替换并重启，但 macOS 更新缓存仍含约 117 MB 的 `pending/kaida-auto-quiz-1.0.5-macOS.zip` 和约 128 MB 的 `update.zip`。
+- 根因：当前 `electron-updater` 的 MacUpdater 在下载完成时将 ZIP 复制为 `update.zip`，供下次差分下载；`DownloadedUpdateHelper` 仅在缓存失效或显式 `clear()` 时清理 `pending`，安装成功后没有自动清空这两份文件。
+- 正确做法：将“安装成功”与“安装包清理”分开验收；后续清理必须以新启动的应用版本与已安装更新版本一致为前提，只处理更新器专属缓存，不触碰用户数据。
+- 验证方式：安装后同时核对 `/Applications` 中的版本、运行进程及界面徽记，再单独检查更新器缓存目录；1.0.5 的前三项为 1.0.5，缓存清理未通过。
+- 禁止事项：不要把重启成功写成缓存清理成功；不要盲目清空用户数据目录或影响尚未安装的更新。
+- 相关文件或命令：`electron/ota.ts`、`node_modules/electron-updater/out/MacUpdater.js`、`DownloadedUpdateHelper.js`、`~/Library/Caches/kaida-auto-quiz-updater/`。
+- 适用范围：macOS Squirrel OTA 安装后的空间回收。
+- 来源：1.0.5 正式客户端真机安装后本机目录检查与当前安装的 electron-updater 源码。
+- 本次验收口径：用户明确接受保留更新器 ZIP 缓存；这项现象须记录，但不阻塞 2.0.0 发布。
+
 ## 默认 ad-hoc CDHash 会阻止 Squirrel.Mac 跨版本安装
 
 - 现象：正式 1.0.2 检测到 1.0.3，下载后 ZIP 的远端 SHA-256 与更新清单 SHA-512 均一致，但点击安装报“代码未能满足指定的代码要求”；`/Applications` 仍为 1.0.2。

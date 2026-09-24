@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { access, mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { request as httpsRequest } from 'node:https'
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -79,9 +79,23 @@ const main = async () => {
   const relevant = ['package.json', 'package-lock.json', 'electron-builder.yml', 'electron', 'src', 'build']
   const status = spawnSync('git', ['status', '--porcelain', '--', ...relevant], { encoding: 'utf8' })
   if (status.status !== 0 || status.stdout.trim()) throw new Error('发布前要求本次源码和打包配置已提交')
+  const build = spawnSync('npm', ['run', 'build'], { stdio: 'inherit' })
+  if (build.status !== 0) throw new Error('应用源码构建失败')
   for (const platform of platforms) {
-    const result = spawnSync('npm', ['exec', '--', 'electron-builder', ...platform.args, `-c.directories.output=${platform.dir}`, '--publish', 'never'], { stdio: 'inherit', env: { ...process.env, CSC_IDENTITY_AUTO_DISCOVERY: 'true' } })
+    const browserDir = path.join(buildRoot, platform.args[0] === '--mac' ? 'browser-mac-arm64' : 'browser-win-x64')
+    const browser = spawnSync('node', [path.join(root, 'scripts/prepare-browsers.mjs'), platform.args[0] === '--mac' ? 'mac-arm64' : 'win-x64', browserDir], { stdio: 'inherit' })
+    if (browser.status !== 0) throw new Error(`${platform.args[0]} Chromium 运行时准备失败`)
+    const result = spawnSync('npm', ['exec', '--', 'electron-builder', ...platform.args, `-c.directories.output=${platform.dir}`, '--publish', 'never'], { stdio: 'inherit', env: { ...process.env, CSC_IDENTITY_AUTO_DISCOVERY: 'true', KAIDA_BROWSER_DIR: path.relative(root, browserDir) } })
     if (result.status !== 0) throw new Error(`${platform.args[0]} 安装包构建失败`)
+    const revision = (await readdir(browserDir)).find(name => /^chromium-\d+$/.test(name))
+    if (!revision) throw new Error(`${platform.args[0]} Chromium 版本目录缺失`)
+    const resources = platform.args[0] === '--mac'
+      ? path.join(platform.dir, 'mac-arm64', '开大智达舱.app', 'Contents', 'Resources')
+      : path.join(platform.dir, 'win-unpacked', 'resources')
+    const executable = platform.args[0] === '--mac'
+      ? path.join(resources, 'browsers', revision, 'chrome-mac-arm64', 'Google Chrome for Testing.app', 'Contents', 'MacOS', 'Google Chrome for Testing')
+      : path.join(resources, 'browsers', revision, 'chrome-win64', 'chrome.exe')
+    await access(executable, constants.R_OK)
   }
   const files = platforms.flatMap(platform => [...platform.files, platform.manifest].map(name => path.join(platform.dir, name)))
   const blockmaps = files.filter(file => /\.(dmg|zip|exe)$/.test(file)).map(file => `${file}.blockmap`)

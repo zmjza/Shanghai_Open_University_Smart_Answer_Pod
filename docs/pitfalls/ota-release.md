@@ -1,5 +1,16 @@
 # OTA 与发布避坑
 
+## 2.1.0 浏览器随包必须保留 macOS 相对符号链接并检查成品
+
+- 现象：旧版朋友电脑运行时报 `Executable doesn't exist`；首次预构建即使配置了浏览器资源，包内仍无 Chromium；修正资源映射后首次 macOS 签名报 Framework 文件不存在。
+- 根因：源码 `postinstall` 下载的浏览器不随 Electron 安装包分发；electron-builder CLI 覆盖没有形成有效资源映射；Node `cp` 默认把 Chromium Framework 相对符号链接改成指向临时下载目录的绝对路径。
+- 正确做法：发布构建分别下载目标平台 Patchright Chromium，使用 `cp` 的 `verbatimSymlinks: true` 保留相对链接，通过 `extraResources` 的环境变量宏指向目标目录；宏须传相对项目根目录的路径。运行时显式指定包内 Chromium 可执行文件。
+- 验证方式：检查 macOS App `Contents/Resources/browsers`、Windows `resources/browsers` 的目标程序存在；Mac 严格深度验签；在无本机浏览器缓存路径下启动包内 Chromium。Windows 真机运行仍待验证。
+- 禁止事项：不要只凭 `postinstall` 或打包成功宣称朋友电脑可运行；不要在复制 macOS Framework 时改写相对符号链接；不要将交叉构建当 Windows 真机验证。
+- 相关文件或命令：`scripts/prepare-browsers.mjs`、`electron-builder.yml`、`electron/core/browser-mode.ts`、`electron/pool.ts`、`scripts/release-publish.mjs`。
+- 适用范围：macOS ARM64 与 Windows x64 离线安装包的浏览器运行时。
+- 来源：2.1.0 预构建失败、包内结构检查与 macOS 隔离启动复测。
+
 ## 安装即时数据哈希未变不能证明后续可用性
 
 - 现象：1.0.5 → 2.0.0 安装后原加密文件即时哈希未变，随后同一文件于 2026-09-24 15:41 从 307 字节变为 371 字节；升级前后账号页均显示未添加账号。

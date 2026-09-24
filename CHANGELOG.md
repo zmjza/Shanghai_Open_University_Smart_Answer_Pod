@@ -1,3 +1,10 @@
+## 2.1.0（2026-09-24，浏览器运行时随包版）
+
+- 修复正式安装包缺少 Patchright Chromium 导致新电脑启动答题时报 `Executable doesn't exist` 的问题。
+- macOS DMG 与 Windows x64 EXE 分别内置对应平台的 Chromium 运行时；安装后不需要 Node.js、npm 或本机 Chrome。
+- 应用在已打包状态下优先从安装目录的 `resources/browsers` 启动浏览器运行时。
+- 预构建验证：macOS ARM64 App 严格验签通过，隔离无浏览器缓存环境能启动包内 Chromium；Windows x64 包内 Chromium 为 PE32+ x86-64，尚无 Windows 真机安装测试。macOS 继续使用 ad-hoc 签名，未经 Apple Developer ID 信任或公证；现有 `xlsx` 依赖仍有 1 项无修复版本的高危审计问题。
+
 ## 2.0.0（2026-09-24，正式版本）
 
 - 将已经真机验证的 macOS OTA 链路作为正式版基线：1.0.4 客户端从 GitHub 发现 1.0.5、下载并通过完整性校验，Squirrel.Mac 在 `/Applications` 原位替换旧应用并自动重启，新客户端显示 v1.0.5。

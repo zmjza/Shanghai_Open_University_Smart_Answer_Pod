@@ -4,7 +4,9 @@ files:
   - dist/**/*
   - dist-electron/**/*
   - package.json
-extraResources: []
+extraResources:
+  - from: ${env.KAIDA_BROWSER_DIR}
+    to: browsers
 directories:
   output: release
 publish:

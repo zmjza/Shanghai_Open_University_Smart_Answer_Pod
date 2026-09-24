@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs'
 import { promisify } from 'node:util'
 import { chromium, type BrowserContext, type Page } from 'patchright'
 import { SlotPool } from './core/slot-pool.ts'
-import { headlessUserAgent } from './core/browser-mode.ts'
+import { browserExecutablePath, headlessUserAgent } from './core/browser-mode.ts'
 import { profileDir } from './store.ts'
 
 type BrowserMode = 'headless' | 'visual'
@@ -116,6 +116,7 @@ export async function acquire(local_id: string, visual: boolean): Promise<{ ok: 
   const dir = profileDir(local_id)
   mkdirSync(dir, { recursive: true })
   const context = await chromium.launchPersistentContext(dir, {
+    executablePath: browserExecutablePath(),
     headless: mode === 'headless',
     channel: 'chromium',
     userAgent: mode === 'headless' ? headlessUserAgent() : undefined,

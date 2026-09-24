@@ -102,7 +102,7 @@ const main = async () => {
   files.push(...blockmaps)
   for (const file of files) await access(file, constants.R_OK)
   for (const platform of platforms) await verifyManifest(path.join(platform.dir, platform.manifest), platform.files)
-  const push = spawnSync('git', ['push', 'origin', 'main'], { stdio: 'inherit' })
+  const push = spawnSync('git', ['push', 'origin', 'HEAD:main'], { stdio: 'inherit' })
   if (push.status !== 0) throw new Error('GitHub main 分支推送失败')
   const head = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim()
   const taggedCommit = spawnSync('gh', ['api', `repos/${repo}/commits/${target}`, '--jq', '.sha'], { encoding: 'utf8' })

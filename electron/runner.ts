@@ -94,6 +94,8 @@ const stopControllers = new Map<string, AbortController>()
 let running = false
 let runConcurrency: ReturnType<typeof concurrencySnapshot> | null = null
 let runAccountIds = new Set<string>()
+const activeRuns = new Map<string, Promise<void>>()
+let stoppingAll = false
 let selectionStartRequested = false
 const WRITEBACK_RETRY_MS = 3000
 
@@ -228,6 +230,7 @@ export function snapshot() {
   const settings = getSettings()
   const students = accounts.map((a) => ({
     ...viewOf(a),
+    configLocked: isStudentLocked(a.local_id),
     browserWindowVisible: browserWindowVisible(a.local_id),
   }))
   if (process.env.KAIDA_E2E_MOCK_COURSES === '1') {
@@ -279,6 +282,39 @@ export function snapshot() {
 
 export function isRunning() {
   return running
+}
+
+export function isStudentLocked(local_id: string) {
+  return activeRuns.has(local_id) || isHeld(local_id)
+}
+
+export function canApplyAllSettings() {
+  return !running && !stoppingAll && activeRuns.size === 0
+}
+
+export function applyStudentSettingsToAll(local_id: string) {
+  if (!canApplyAllSettings()) return { ok: false, error: '仍有学生运行或排队，请全部停止后再同步' }
+  const accounts = listAccounts()
+  const source = accounts.find((a) => a.local_id === local_id)
+  if (!source) return { ok: false, error: '请先选择学生' }
+  const patch = { display_mode: source.display_mode, work_mode: source.work_mode, course_scope: source.course_scope, answer_round_limit: source.answer_round_limit }
+  const failed: string[] = []
+  let updated = 0
+  for (const account of accounts) {
+    try {
+      patchAccount(account.local_id, { ...patch })
+      const v = views.get(account.local_id)
+      if (v) {
+        v.displayMode = patch.display_mode
+        v.workMode = patch.work_mode
+        v.courseScope = patch.course_scope
+        v.answerRoundLimit = patch.answer_round_limit
+        v.selectedCourseNames = []
+      }
+      updated++
+    } catch { failed.push(account.name) }
+  }
+  return { ok: failed.length === 0, updated, failed, error: failed.length ? `有 ${failed.length} 名学生保存失败` : undefined }
 }
 
 function nextQrVersion(local_id: string) {
@@ -435,7 +471,7 @@ export async function signalVerified(local_id: string) {
 }
 
 export async function toggleDisplay(local_id: string, mode: 'headless' | 'visual') {
-  if (running) return { ok: false, visible: browserWindowVisible(local_id), error: '任务运行中，浏览器模式已锁定；请停止任务后再切换' }
+  if (isStudentLocked(local_id)) return { ok: false, visible: browserWindowVisible(local_id), error: '该学生任务运行中，浏览器模式已锁定；请停止后再切换' }
   if (isHeld(local_id)) return { ok: false, visible: browserWindowVisible(local_id), error: '浏览器仍在占用中；请先停止并释放浏览器后再切换' }
   patchAccount(local_id, { display_mode: mode })
   const v = views.get(local_id)
@@ -444,7 +480,7 @@ export async function toggleDisplay(local_id: string, mode: 'headless' | 'visual
 }
 
 export async function setWorkMode(local_id: string, mode: 'answer' | 'extract') {
-  if (running) return { ok: false, error: '任务运行中，工作模式已锁定' }
+  if (isStudentLocked(local_id)) return { ok: false, error: '该学生任务运行中，工作模式已锁定' }
   patchAccount(local_id, { work_mode: mode })
   const v = views.get(local_id)
   if (v) v.workMode = mode
@@ -452,7 +488,7 @@ export async function setWorkMode(local_id: string, mode: 'answer' | 'extract') 
 }
 
 export function setCourseScope(local_id: string, scope: CourseScope) {
-  if (running) return { ok: false, error: '任务运行中，课程范围已锁定' }
+  if (isStudentLocked(local_id)) return { ok: false, error: '该学生任务运行中，课程范围已锁定' }
   patchAccount(local_id, { course_scope: scope })
   const v = views.get(local_id)
   if (v) {
@@ -464,8 +500,8 @@ export function setCourseScope(local_id: string, scope: CourseScope) {
 
 export function setSelectedCourses(local_id: string, names: string[]) {
   const v = views.get(local_id)
-  const editableAfterStop = Boolean(v && !running && v.account === 'stopped')
-  if (!v || selectionStartRequested || (!v.awaitingCourseSelection && !editableAfterStop)) {
+  const editableAfterStop = Boolean(v && !isStudentLocked(local_id) && v.account === 'stopped')
+  if (!v || (selectionStartRequested && !editableAfterStop) || (!v.awaitingCourseSelection && !editableAfterStop)) {
     return { ok: false, error: '当前不在课程选择阶段' }
   }
   const available = new Set(v.courses.map((course) => course.name))
@@ -497,10 +533,12 @@ export function startSelectedCourseExecution() {
 }
 
 export function setAnswerRoundLimit(local_id: string, limit: number) {
+  if (isStudentLocked(local_id)) return { ok: false, error: '该学生任务运行中，重新答题次数已锁定' }
   const answerRoundLimit = Math.min(10, Math.max(1, Number(limit) || 10))
   patchAccount(local_id, { answer_round_limit: answerRoundLimit })
   const v = views.get(local_id)
   if (v) v.answerRoundLimit = answerRoundLimit
+  return { ok: true }
 }
 
 export type HistoryScoreItem = {
@@ -616,6 +654,7 @@ export async function stopStudent(local_id: string) {
     setState(v, 'stopped', '已停止', 'released')
   }
   await release(local_id)
+  await activeRuns.get(local_id)
 }
 
 function stopAware<T>(local_id: string, task: Promise<T>): Promise<T> {
@@ -668,6 +707,7 @@ async function runOne(a: LocalAccount) {
     }
     if (!got.ok) return
   }
+  if (stopFlag.has(a.local_id)) return
   v.slot = 'occupied'
   setState(v, 'launching_browser', '启动浏览器', 'occupied')
   const ctx = got.context!
@@ -680,6 +720,7 @@ async function runOne(a: LocalAccount) {
     slot: v.slot,
     onNeedVerify: () => waitForVerify(a.local_id, page, 'portal'),
   })
+  if (stopFlag.has(a.local_id)) return
   if (!login.ok) {
     setState(v, 'login_failed', '登录失败，本号停止', 'released')
     await release(a.local_id)
@@ -1443,40 +1484,77 @@ async function maybeReview(preview: Page, results: QResult[], courseName: string
   }
 }
 
-export async function loginAndRefresh(accountIds?: string[]) {
-  if (running) {
-    for (const a of listAccounts().filter((row) => !accountIds || accountIds.includes(row.local_id))) {
-      if (isHeld(a.local_id)) await stopStudent(a.local_id)
+function scheduleStudent(a: LocalAccount) {
+  if (activeRuns.has(a.local_id) || stoppingAll) return false
+  stopFlag.delete(a.local_id)
+  stopControllers.set(a.local_id, new AbortController())
+  runAccountIds.add(a.local_id)
+  const task = Promise.resolve().then(() => runOne(a)).catch(async (e) => {
+    const v = viewOf(a)
+    const reason = e instanceof Error ? e.message : '未知运行异常'
+    setState(v, 'stopped', '本学生已停止 · ' + reason, 'released')
+    await release(a.local_id)
+  }).finally(() => {
+    activeRuns.delete(a.local_id)
+    runAccountIds.delete(a.local_id)
+    stopControllers.delete(a.local_id)
+    clearVerification(a.local_id, true)
+    if (!activeRuns.size) {
+      running = false
+      runConcurrency = null
+      selectionStartRequested = false
     }
-  }
-  const settings = getSettings()
-  runConcurrency = concurrencySnapshot(settings)
-  running = true
-  stopFlag.clear()
-  selectionStartRequested = false
-  slots.setLimit(runConcurrency.account_parallel)
-  const accounts = listAccounts().filter((row) => !accountIds || accountIds.includes(row.local_id))
-  stopControllers.clear()
-  for (const account of accounts) stopControllers.set(account.local_id, new AbortController())
-  runAccountIds = new Set(accounts.map((account) => account.local_id))
-  try {
-    await Promise.all(accounts.map((a) => runOne(a).catch((e) => {
-      const v = viewOf(a)
-      const reason = e instanceof Error ? e.message : '未知运行异常'
-      setState(v, 'stopped', '本学生已停止 · ' + reason, 'released')
-      return release(a.local_id).then(() => {
-        throw e
-      }).catch(() => {})
-    })))
-  } finally {
-    for (const local_id of runAccountIds) clearVerification(local_id, true)
-    courseSelectionWaiters.clear()
-    runAccountIds = new Set()
-    stopControllers.clear()
+  })
+  activeRuns.set(a.local_id, task)
+  return true
+}
+
+export function startStudent(local_id: string) {
+  const account = listAccounts().find((a) => a.local_id === local_id)
+  if (!account) return { ok: false, error: '学生账号不存在' }
+  if (stoppingAll || isStudentLocked(local_id)) return { ok: false, error: '该学生正在运行、排队或停止中' }
+  if (!running) {
+    runConcurrency = concurrencySnapshot(getSettings())
+    slots.setLimit(runConcurrency.account_parallel)
     selectionStartRequested = false
+    running = true
+  }
+  scheduleStudent(account)
+  return { ok: true }
+}
+
+export function enqueueNewStudents(ids: string[]) {
+  if (!running || stoppingAll) return 0
+  const wanted = new Set(ids)
+  let count = 0
+  for (const account of listAccounts()) if (wanted.has(account.local_id) && scheduleStudent(account)) count++
+  return count
+}
+
+export async function stopAllStudents() {
+  stoppingAll = true
+  try {
+    await Promise.all([...activeRuns.keys()].map((id) => stopStudent(id)))
+    await Promise.all([...activeRuns.values()])
+  } finally {
     running = false
     runConcurrency = null
+    selectionStartRequested = false
+    stoppingAll = false
   }
+}
+
+export async function loginAndRefresh(accountIds?: string[]) {
+  if (running || stoppingAll) return { ok: false, error: '任务运行中，请单独开始或停止学生' }
+  const accounts = listAccounts().filter((a) => !accountIds || accountIds.includes(a.local_id))
+  if (!accounts.length) return { ok: false, error: '请先添加学生账号' }
+  runConcurrency = concurrencySnapshot(getSettings())
+  slots.setLimit(runConcurrency.account_parallel)
+  selectionStartRequested = false
+  running = true
+  for (const account of accounts) scheduleStudent(account)
+  await Promise.all(accounts.map((a) => activeRuns.get(a.local_id)!))
+  return { ok: true }
 }
 
 export { views }

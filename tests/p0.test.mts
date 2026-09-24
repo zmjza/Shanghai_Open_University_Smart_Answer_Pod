@@ -167,7 +167,7 @@ test('AI 请求在所有学生之间共享最小间隔，限流后追加冷却',
   pacer.defer(5_000)
   await pacer.wait()
   assert.deepEqual(waits, [750, 5_000])
-  assert.equal(AI_MIN_REQUEST_INTERVAL_MS, 750)
+  assert.equal(AI_MIN_REQUEST_INTERVAL_MS, 1_000)
   assert.equal(AI_RATE_LIMIT_COOLDOWN_MS, 5_000)
 })
 

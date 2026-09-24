@@ -36,6 +36,7 @@ export type LiveStudent = {
   extractHistoryCompleted: number
   extractCurrentHistory: string
   needsVerify: boolean
+  configLocked: boolean
   queued: boolean
   logs: string[]
   courseLogs: { time: string; level: 'info' | 'running' | 'success' | 'warning' | 'error'; courseName: string; homeworkName: string; action: string; result: string; reason: string }[]

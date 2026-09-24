@@ -1,0 +1,143 @@
+import assert from 'node:assert/strict'
+import { build } from 'esbuild'
+
+const fixture = {
+  events: [], portalWaiting: false, qrWaiting: false, qrOpen: true,
+  homeworkClicks: 0, submitted: false, released: false, held: false,
+  accounts: [{ local_id: 'student-1', name: '测试学生', username: 'student-1', password: 'fake', display_mode: 'headless', work_mode: 'answer', course_scope: 'all', answer_round_limit: 1 }],
+}
+globalThis.__t002 = fixture
+
+class FakeLocator {
+  constructor(page, selector) { this.page = page; this.selector = selector }
+  first() { return this }
+  async count() { return 1 }
+  async click() {
+    if (this.selector.includes('assignment/preview.aspx')) {
+      fixture.homeworkClicks++
+      if (fixture.homeworkClicks > 1) this.page.path = '/study/assignment/preview.aspx'
+    }
+  }
+  async screenshot() { return Buffer.from('internal-qr') }
+  async waitFor() {}
+  async innerText() { return '' }
+  async getAttribute() { return '' }
+}
+
+class FakePage {
+  constructor(kind, ctx) { this.kind = kind; this.ctx = ctx; this.path = kind === 'portal' ? '/scenter' : '/study/assignment-preview.aspx' }
+  context() { return this.ctx }
+  locator(selector) { return new FakeLocator(this, selector) }
+  url() { return 'https://l.shou.org.cn' + this.path }
+  async reload() {}
+  async bringToFront() {}
+  async waitForTimeout() {}
+  async waitForLoadState() {}
+  async goto(url) { this.path = new URL(url).pathname; return { ok: () => true, status: () => 200 } }
+  async close() {}
+}
+
+ const context = { pages: () => [context.portal, context.preview, context.answer], newPage: async () => new FakePage('history', context), waitForEvent: async () => context.answer, portal: null, preview: null, answer: null }
+context.portal = new FakePage('portal', context)
+context.preview = new FakePage('preview', context)
+context.answer = new FakePage('answer', context)
+globalThis.__t002Context = context
+const mock = (...lines) => lines.join(String.fromCharCode(10))
+const modules = {
+  electron: mock(
+    "export const app = { getVersion: () => '2.2.0' }",
+    "export class Notification { static isSupported() { return false } }",
+  ),
+  "./store": mock(
+    "export const listAccounts = () => globalThis.__t002.accounts",
+    "export const getSettings = () => ({ account_parallel: 1, course_parallel: 1 })",
+    "export const getWriteback = () => []",
+    "export const getExtractWriteback = () => []",
+    "export const saveWriteback = () => {}",
+    "export const saveExtractWriteback = () => {}",
+    "export const patchAccount = () => {}",
+    "export class ExtractWritebackSaveError extends Error {}",
+  ),
+  "./pool": mock(
+    "export const slots = { setLimit() {}, occupy() {}, release() {}, occupyingVerify() {}, request() { return 'occupied' }, promoteQueued() {} }",
+    "export const acquire = async () => { globalThis.__t002.held = true; return { ok: true, context: globalThis.__t002Context } }",
+    "export const release = async () => { globalThis.__t002.released = true; globalThis.__t002.held = false }",
+    "export const isHeld = () => globalThis.__t002.held",
+    "export const markVerify = () => {}",
+    "export const markOccupied = () => {}",
+    "export const browserWindowVisible = () => false",
+    "export const toolbarBrowserCount = () => 1",
+    "export const averageBrowserMemoryBytes = () => 0",
+    "export const browserMemoryStatus = () => 'idle'",
+    "export const getContext = () => globalThis.__t002Context",
+  ),
+  "./login": mock(
+    "export const loginIam = async ({ onNeedVerify }) => { globalThis.__t002.events.push('portal_waiting'); globalThis.__t002.portalWaiting = true; await onNeedVerify(); globalThis.__t002.events.push('portal_verified'); return { ok: true } }",
+  ),
+  "./detect": mock(
+    "export const listCourses = async () => [{ name: '测试课程', href: '/course' }]",
+    "export const detectCourse = async () => ({ name: '测试课程', status: '已检测', homeworks: [{ section: 'onlineHomework', name: '测试作业', workType: '网上记分作业', weightPercent: 100, previewHref: '/study/assignment-preview.aspx', status: 'todo', needDo: true, remainingCap: 1, page: globalThis.__t002Context.preview }] })",
+     "export const readHistory = async () => globalThis.__t002.submitted ? [{ submittedAt: '2026-09-24T00:00:00.000Z', status: '已批阅', score: 100, historyHref: '/study/assignment/history.aspx?id=1' }] : []",
+  ),
+  "./answer": mock(
+    "export const answerPage = async () => { globalThis.__t002.events.push('answering'); return { results: [{ no: '1', hash: 'hash-1', source: 'AI 答题', qtype: 'single', stem: '题目', options: ['甲', '乙'], selected: ['甲'] }], bankCount: 0, aiCount: 1 } }",
+  ),
+  "./submit": mock(
+    "export const submitHomework = async () => { globalThis.__t002.submitted = true; globalThis.__t002.events.push('submitting'); return { ok: true } }",
+    "export const historyHasNew = () => globalThis.__t002.submitted",
+  ),
+  "./progress": mock(
+    "export const onProgress = () => () => {}",
+    "export const emitProgress = (event) => { globalThis.__t002.events.push(event.account || event.homework || event.action) }",
+  ),
+  "./page-tools": mock(
+    "export const hasQr = async (page) => page?.kind === 'preview' && globalThis.__t002.qrOpen",
+  ),
+  "./ai": "export const resetAsked = () => {}",
+  "./review.ts": mock(
+    "export const extractReviewedQuestions = async () => ({})",
+    "export const reviewResults = async () => { globalThis.__t002.events.push('reviewing'); return { reviewed: 1, matched: 1, graded: 1, inserted: 1, conflicts: 0, deleted: 0, wrong: 0, bankWrong: 0, aiWrong: 0, deleteFailed: 0, pendingCandidates: [], pendingInsertHashes: [], pendingDeleteHashes: [], score: 100 } }",
+  ),
+  "./bank.ts": "export const upsertQuestion = async () => 'added'",
+}
+
+const built = await build({
+  entryPoints: ['electron/runner.ts'], bundle: true, platform: 'node', format: 'esm', write: false,
+  plugins: [{ name: 't002-post-scan', setup(plugin) {
+    plugin.onResolve({ filter: /^(electron|[.]\/(?:store|pool|login|detect|answer|submit|progress|page-tools|ai|review.ts|bank.ts))$/ }, args => ({ path: args.path, namespace: 't002-mock' }))
+    plugin.onLoad({ filter: /.*/, namespace: 't002-mock' }, args => ({ contents: modules[args.path], loader: 'js' }))
+  } }],
+})
+const runner = await import('data:text/javascript;base64,' + Buffer.from(built.outputFiles[0].text).toString('base64'))
+
+const waitFor = async (check, label) => {
+  for (let i = 0; i < 100; i++) {
+    if (check()) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  throw new Error(label + ' 超时')
+}
+
+const run = runner.loginAndRefresh(['student-1'])
+await waitFor(() => fixture.portalWaiting, '门户验证等待')
+assert.deepEqual((await runner.signalVerified('student-1')).ok, true)
+await waitFor(() => fixture.homeworkClicks === 1 && fixture.events.includes('needs_verify'), '作业二维码验证等待')
+fixture.qrOpen = false
+assert.deepEqual((await runner.signalVerified('student-1')).ok, true)
+ let timeoutId
+ const timeout = new Promise((_, reject) => { timeoutId = setTimeout(() => reject(new Error(JSON.stringify(fixture.events))), 3000) })
+ try { await Promise.race([run, timeout]) } finally { clearTimeout(timeoutId) }
+
+const snapshot = runner.snapshot()
+const student = snapshot.students.find((item) => item.local_id === 'student-1')
+assert.ok(student)
+assert.equal(student.account, 'round_ended')
+assert.equal(student.slot, 'released')
+assert.equal(fixture.released, true)
+assert.equal(fixture.events.filter((event) => event === 'needs_verify').length, 2)
+assert.equal(fixture.homeworkClicks, 2)
+assert.equal(student.configLocked, false)
+assert.equal(fixture.submitted, true)
+for (const event of ['portal_verified', 'answering', 'submitting', 'reviewing']) assert.ok(fixture.events.includes(event), event + ' 未触发')
+assert.equal(runner.isRunning(), false)
+console.log('T002 扫码后完整内部模拟链路通过')

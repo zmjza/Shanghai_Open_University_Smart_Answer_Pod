@@ -27,6 +27,7 @@ declare global {
       addAccount: (row: unknown) => Promise<{ ok: boolean; error?: string }>
       updateAccount: (id: string, row: unknown) => Promise<{ ok: boolean; error?: string }>
       removeAccount: (id: string) => Promise<{ ok: boolean }>
+      removeAllAccounts: (ids: string[]) => Promise<{ ok: boolean; removed: number; error?: string }>
      importExcel: () => Promise<{ ok: boolean; error?: string; count?: number }>
       parsePastedAccounts: (text: string) => Promise<{ ok: boolean; rows: { name: string; username: string; password: string }[]; errors: { line: number; text: string; reason: string }[]; skippedHeaders: number }>
       confirmPastedAccounts: (rows: { name: string; username: string; password: string }[]) => Promise<{ ok: boolean; imported: number; error?: string }>
@@ -37,6 +38,9 @@ declare global {
       listBankCourses: () => Promise<{ ok: boolean; error?: string; courses: string[] }>
       deleteBankQuestions: (ids: string[]) => Promise<{ requestedIds: string[]; deletedIds: string[]; failed: { id: string; reason: string }[]; readbackConfirmed: boolean; error?: string }>
       loginRefresh: (accountIds?: string[]) => Promise<{ ok: boolean }>
+      startStudent: (id: string) => Promise<{ ok: boolean; error?: string }>
+      stopAllStudents: () => Promise<{ ok: boolean }>
+      applyStudentSettingsToAll: (id: string) => Promise<{ ok: boolean; updated?: number; failed?: string[]; error?: string }>
       setDisplay: (id: string, mode: string) => Promise<{ ok: boolean; visible: boolean | null; error?: string }>
       setWorkMode: (id: string, mode: string) => Promise<{ ok: boolean; error?: string }>
       setCourseScope: (id: string, scope: string) => Promise<{ ok: boolean; error?: string }>
@@ -44,7 +48,7 @@ declare global {
       startSelectedCourses: () => Promise<{ ok: boolean; error?: string }>
       getHomeworkHistory: (id: string, courseName: string, homeworkName: string) => Promise<{ ok: boolean; error?: string; items: { attempt: number; submittedAt: string; status: string; score: number | null; completed: boolean; viewable: boolean; displayState: 'viewable' | 'ungraded' | 'unfinished' | 'continue_only' | 'no_view' }[] }>
       getHistoryPaperImage: (id: string, courseName: string, homeworkName: string, submittedAt: string) => Promise<{ ok: boolean; error?: string; image?: string }>
-      setAnswerRoundLimit: (id: string, limit: number) => Promise<void>
+      setAnswerRoundLimit: (id: string, limit: number) => Promise<{ ok: boolean; error?: string }>
       openVisual: (id: string) => Promise<{ ok: boolean; error?: string }>
       getQrSnapshot: (id: string) => Promise<{ ok: boolean; error?: string; snapshot?: QrSnapshotPayload }>
       refreshQrSnapshot: (id: string) => Promise<{ ok: boolean; error?: string; snapshot?: QrSnapshotPayload }>

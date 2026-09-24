@@ -65,6 +65,7 @@ const studentMeta = computed(() => {
       extractHistoryCompleted: s.extractHistoryCompleted,
       extractCurrentHistory: s.extractCurrentHistory,
       needsVerify: s.needsVerify,
+      configLocked: s.configLocked,
       displayMode: s.displayMode,
       workMode: s.workMode,
       courseScope: s.courseScope,
@@ -78,7 +79,7 @@ const studentMeta = computed(() => {
       courseLogs: s.courseLogs || [],
     }))
   }
-  return [{ local_id: '', name: '未选择学生', id: '', major: '', campus: '', headline: '等待添加学生账号', action: '等待添加学生账号', account: 'idle', bankCount: 0, aiCount: 0, extractTotals: { added: 0, merged: 0, skipped: 0, conflict: 0, failed: 0 }, extractTotalCourses: 0, extractCompletedCourses: 0, extractTotalHomeworks: 0, extractCompletedHomeworks: 0, extractHistoryPages: 0, extractHistoryTotal: 0, extractHistoryCompleted: 0, extractCurrentHistory: '', needsVerify: false, displayMode: 'headless' as const, workMode: 'answer' as const, courseScope: 'all' as const, selectedCourseNames: [], awaitingCourseSelection: false, answerRoundLimit: 10, courses: [], groups: [], activeCourseName: '', logs: [], courseLogs: [] }]
+  return [{ local_id: '', name: '未选择学生', id: '', major: '', campus: '', headline: '等待添加学生账号', action: '等待添加学生账号', account: 'idle', bankCount: 0, aiCount: 0, extractTotals: { added: 0, merged: 0, skipped: 0, conflict: 0, failed: 0 }, extractTotalCourses: 0, extractCompletedCourses: 0, extractTotalHomeworks: 0, extractCompletedHomeworks: 0, extractHistoryPages: 0, extractHistoryTotal: 0, extractHistoryCompleted: 0, extractCurrentHistory: '', needsVerify: false, configLocked: false, displayMode: 'headless' as const, workMode: 'answer' as const, courseScope: 'all' as const, selectedCourseNames: [], awaitingCourseSelection: false, answerRoundLimit: 10, courses: [], groups: [], activeCourseName: '', logs: [], courseLogs: [] }]
 })
 const currentStudent = computed(() => studentMeta.value[activeStudent.value] ?? studentMeta.value[0])
 const hasLiveStudents = computed(() => Boolean(snap.value?.students?.length))
@@ -116,6 +117,7 @@ const unselectedStudentNames = computed(() => studentMeta.value
 const waitingForCourseSelection = computed(() => studentMeta.value.some((student) => student.awaitingCourseSelection))
 const canOpenCourseLog = computed(() => Boolean(currentCourseName.value) && !(currentStudent.value.awaitingCourseSelection && currentStudent.value.courseScope === 'selected' && !selectedCourseName.value))
 const controlsLocked = computed(() => Boolean(snap.value?.running))
+const studentConfigLocked = computed(() => Boolean(currentStudent.value.configLocked))
 const currentCourseLogs = computed(() => (currentStudent.value.courseLogs || []).filter((log) => log.courseName === currentCourseName.value).slice().reverse())
 watch(currentStudent, (s) => {
   displayMode.value = s.displayMode
@@ -191,29 +193,40 @@ function currentId() {
   return currentStudent.value.local_id
 }
 async function toggleMode(mode: DisplayMode) {
-  if (!currentId() || controlsLocked.value) return showToast('任务运行中，浏览器模式已锁定')
+  if (!currentId() || studentConfigLocked.value) return showToast('该学生运行中，浏览器模式已锁定')
   const result = await window.kaida?.setDisplay(currentId(), mode)
   if (!result?.ok) return showToast(result?.error || '浏览器模式切换失败')
   displayMode.value = mode
   showToast(mode === 'headless' ? '已设置无头模式，下次启动生效' : '已设置可视化模式，下次启动生效')
 }
 async function setWorkMode(mode: WorkMode) {
-  if (!currentId() || controlsLocked.value) return showToast('任务运行中，工作模式已锁定')
+  if (!currentId() || studentConfigLocked.value) return showToast('该学生运行中，工作模式已锁定')
   const result = await window.kaida?.setWorkMode(currentId(), mode)
   if (!result?.ok) return showToast(result?.error || '工作模式修改失败')
   workMode.value = mode
   showToast(mode === 'answer' ? '模式已设为：智能答题' : '模式已设为：提取题库')
 }
 async function setCourseScope(scope: CourseScope) {
-  if (!currentId() || controlsLocked.value) return showToast('任务运行中，课程范围已锁定')
+  if (!currentId() || studentConfigLocked.value) return showToast('该学生运行中，课程范围已锁定')
   const result = await window.kaida?.setCourseScope(currentId(), scope)
   if (!result?.ok) return showToast(result?.error || '课程范围修改失败')
   courseScope.value = scope
   showToast(scope === 'all' ? '本学生将执行全部课程' : '扫描后由你选择本轮课程')
 }
-function setAnswerRoundLimit() {
-  if (currentId()) void window.kaida?.setAnswerRoundLimit(currentId(), answerRoundLimit.value)
-  showToast(`每份作业本次最多答 ${answerRoundLimit.value} 轮`)
+async function setAnswerRoundLimit() {
+  if (!currentId() || studentConfigLocked.value) return showToast('该学生运行中，重新答题次数已锁定')
+  const result = await window.kaida?.setAnswerRoundLimit(currentId(), answerRoundLimit.value)
+  showToast(result?.ok ? `每份作业本次最多答 ${answerRoundLimit.value} 轮` : (result?.error || '保存失败'))
+}
+async function applyAllSettings() {
+  if (!currentId() || controlsLocked.value) return
+  const result = await window.kaida?.applyStudentSettingsToAll(currentId())
+  showToast(result?.ok ? `已将配置设置到全部 ${result.updated} 名学生` : `${result?.error || '同步失败'}；成功 ${result?.updated || 0} 名`)
+}
+async function startCurrentStudent() {
+  if (!currentId()) return
+  const result = await window.kaida?.startStudent(currentId())
+  showToast(result?.ok ? '该学生已重新开始或进入队列' : (result?.error || '开始失败'))
 }
 function loginRefresh() {
   if (controlsLocked.value) return
@@ -265,8 +278,8 @@ function stopTask() {
   if (currentId()) void window.kaida?.stop(currentId())
   showToast('已安全暂停当前答题任务')
 }
-function stopAll() {
-  for (const student of studentMeta.value) if (student.local_id) void window.kaida?.stop(student.local_id)
+async function stopAll() {
+  await window.kaida?.stopAllStudents()
   showToast('已停止全部学生任务')
 }
 function deleteStudent() {
@@ -481,8 +494,8 @@ function homeworkSourceCount(rows: { source: '题库' | 'AI' | '空过' }[], sou
 <span class="text-[13px] font-bold text-slate-900 tracking-tight">我的课程 ({{ allCourseRows.length }})</span>
 </div>
 <div class="grid grid-cols-2 gap-1 rounded-xl border border-[#EDE9FE] bg-[#F5F3FF] p-1">
-<button type="button" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-all" :class="courseScope === 'all' ? 'bg-[#4F46E5] text-white shadow-sm' : 'text-slate-500 hover:bg-white'" :disabled="controlsLocked" @click="setCourseScope('all')">全部自动执行</button>
-<button type="button" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-all" :class="courseScope === 'selected' ? 'bg-[#4F46E5] text-white shadow-sm' : 'text-slate-500 hover:bg-white'" :disabled="controlsLocked" @click="setCourseScope('selected')">可选课程执行</button>
+<button type="button" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-all" :class="courseScope === 'all' ? 'bg-[#4F46E5] text-white shadow-sm' : 'text-slate-500 hover:bg-white'" :disabled="studentConfigLocked" @click="setCourseScope('all')">全部自动执行</button>
+<button type="button" class="rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-all" :class="courseScope === 'selected' ? 'bg-[#4F46E5] text-white shadow-sm' : 'text-slate-500 hover:bg-white'" :disabled="studentConfigLocked" @click="setCourseScope('selected')">可选课程执行</button>
 </div>
 </div>
 <div class="h-[360px] overflow-y-auto p-2 flex flex-col gap-1" id="course-list">
@@ -639,20 +652,20 @@ function homeworkSourceCount(rows: { source: '题库' | 'AI' | '空过' }[], sou
 <div class="flex items-center justify-between gap-2">
 <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">执行环境</span>
 <div class="p-0.5 rounded-full bg-[#F5F3FF] flex items-center border border-[#EDE9FE]">
-<button @click="toggleMode('headless')" class="mode-headless-btn disabled:cursor-not-allowed disabled:opacity-60" :class="displayMode === 'headless' ? segOn : segOff" :disabled="controlsLocked">无头浏览器</button>
-<button @click="toggleMode('visual')" class="mode-visual-btn disabled:cursor-not-allowed disabled:opacity-60" :class="displayMode === 'visual' ? segOn : segOff" :disabled="controlsLocked">可视化浏览器</button>
+<button @click="toggleMode('headless')" class="mode-headless-btn disabled:cursor-not-allowed disabled:opacity-60" :class="displayMode === 'headless' ? segOn : segOff" :disabled="studentConfigLocked">无头浏览器</button>
+<button @click="toggleMode('visual')" class="mode-visual-btn disabled:cursor-not-allowed disabled:opacity-60" :class="displayMode === 'visual' ? segOn : segOff" :disabled="studentConfigLocked">可视化浏览器</button>
 </div>
 </div>
 <div class="flex items-center justify-between gap-2">
 <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">工作模式</span>
 <div class="p-0.5 rounded-full bg-[#F5F3FF] flex items-center border border-[#EDE9FE]" id="work-mode-switcher">
-<button @click="setWorkMode('answer')" class="workmode-btn-ans disabled:cursor-not-allowed disabled:opacity-60" :class="workMode === 'answer' ? workOn : workOff" :disabled="controlsLocked">答题</button>
-<button @click="setWorkMode('extract')" class="workmode-btn-ext disabled:cursor-not-allowed disabled:opacity-60" :class="workMode === 'extract' ? workOn : workOff" :disabled="controlsLocked">提取题库</button>
+<button @click="setWorkMode('answer')" class="workmode-btn-ans disabled:cursor-not-allowed disabled:opacity-60" :class="workMode === 'answer' ? workOn : workOff" :disabled="studentConfigLocked">答题</button>
+<button @click="setWorkMode('extract')" class="workmode-btn-ext disabled:cursor-not-allowed disabled:opacity-60" :class="workMode === 'extract' ? workOn : workOff" :disabled="studentConfigLocked">提取题库</button>
 </div>
 </div>
 <div v-if="workMode === 'answer'" class="flex items-center justify-between gap-2">
 <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">作业重新答题次数</span>
-<select v-model.number="answerRoundLimit" class="h-7 min-w-[72px] rounded-full border border-[#EDE9FE] bg-[#F5F3FF] px-3 text-[11px] font-semibold text-[#4F46E5] outline-none focus:border-[#A5B4FC]" aria-label="作业重新答题次数" @change="setAnswerRoundLimit">
+<select v-model.number="answerRoundLimit" class="h-7 min-w-[72px] rounded-full border border-[#EDE9FE] bg-[#F5F3FF] px-3 text-[11px] font-semibold text-[#4F46E5] outline-none focus:border-[#A5B4FC]" aria-label="作业重新答题次数" :disabled="studentConfigLocked" @change="setAnswerRoundLimit">
 <option v-for="n in 10" :key="n" :value="n">{{ n }} 轮</option>
 </select>
 </div>
@@ -689,6 +702,7 @@ function homeworkSourceCount(rows: { source: '题库' | 'AI' | '空过' }[], sou
 <div class="flex items-center justify-center gap-2">
 <span class="px-2.5 py-1 rounded-full bg-[#F5F3FF] text-[#4F46E5] font-mono text-[11px] font-medium border border-[#EDE9FE] transition-transform hover:scale-105">账号并行 {{ snap?.settings.account_parallel || 1 }}</span>
 <span class="px-2.5 py-1 rounded-full bg-[#F5F3FF] text-[#4F46E5] font-mono text-[11px] font-medium border border-[#EDE9FE] transition-transform hover:scale-105">课程并行 {{ snap?.settings.course_parallel || 1 }}</span>
+<button type="button" class="px-2 py-1 rounded-full border border-indigo-200 text-indigo-600 text-[10px] font-semibold disabled:opacity-40" :disabled="controlsLocked || !currentId()" @click="applyAllSettings">将配置设置到全部</button>
 </div>
 <!-- Verification Warning Card -->
 <div v-if="needsVerify" class="p-3 rounded-xl bg-[#FEF3C7]/60 border border-[#FDE68A] flex flex-col gap-2">
@@ -702,10 +716,14 @@ function homeworkSourceCount(rows: { source: '题库' | 'AI' | '空过' }[], sou
 </div>
 </div>
 <!-- Quick Toolbar -->
-<div class="grid grid-cols-3 gap-1 pt-2 border-t border-slate-100">
+<div class="grid grid-cols-4 gap-1 pt-2 border-t border-slate-100">
 <button class="py-1.5 rounded-lg text-slate-600 hover:text-[#F59E0B] hover:bg-[#FEF3C7]/40 text-[11px] font-medium transition-all flex flex-col items-center gap-0.5 tactile-btn" id="tool-stop" @click="stopTask">
 <span class="material-symbols-outlined text-[16px]">stop_circle</span>
 <span>停止</span>
+</button>
+<button class="py-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 text-[11px] font-medium transition-all flex flex-col items-center gap-0.5 tactile-btn disabled:opacity-40" id="tool-start" :disabled="!currentId() || studentConfigLocked" @click="startCurrentStudent">
+<span class="material-symbols-outlined text-[16px]">play_circle</span>
+<span>开始</span>
 </button>
 <button class="py-1.5 rounded-lg text-slate-600 hover:text-[#4F46E5] hover:bg-[#F5F3FF] text-[11px] font-medium transition-all flex flex-col items-center gap-0.5 tactile-btn disabled:cursor-not-allowed disabled:opacity-40" id="tool-log" :disabled="!canOpenCourseLog" @click="toggleLog">
 <span class="material-symbols-outlined text-[16px]">receipt_long</span>

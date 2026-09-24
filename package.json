@@ -1,6 +1,6 @@
 {
   "name": "kaida-auto-quiz",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "description": "开大智达舱",
   "author": "kaida",
@@ -11,6 +11,7 @@
     "release:publish": "node scripts/release-publish.mjs",
     "preview": "vite preview",
     "test:p0": "node --experimental-strip-types --test tests/p0.test.mts",
+    "test:t002-post-scan": "node tests/t002-post-scan.mjs",
     "test:e2e:bank": "node --experimental-strip-types tests/e2e-bank.mjs",
     "test:e2e:bank-import": "node --experimental-strip-types tests/e2e-bank-import.mjs",
     "test:e2e:chg026-ui": "node --experimental-strip-types tests/e2e-chg026-ui.mjs",

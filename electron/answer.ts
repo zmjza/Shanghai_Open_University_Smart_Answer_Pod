@@ -4,7 +4,7 @@ import { contentHash, normalizeOption, normalizeStem, qtypeFromPage, hasReadable
 import { lookupByHash } from './bank'
 import { askAi, retryAsked, type AiAttempt } from './ai'
 import { aiAllFailedAction } from './core/ai-parse'
-import { answerRepairExhaustedAction, bankAnswerDelayMs, MAX_ANSWER_REPAIR_ATTEMPTS } from './core/homework'
+import { answerMatches, answerRepairExhaustedAction, bankAnswerDelayMs, MAX_ANSWER_REPAIR_ATTEMPTS } from './core/homework'
 import { buildAnswerPlan, incompleteQuestionNos, readAnswer, waitAnswer, waitQuestionComplete, verifyAnswerSheet } from './page-tools'
 import { emitProgress } from './progress'
 import { appendFileSync } from 'node:fs'
@@ -33,7 +33,7 @@ function aiAttemptAction(prefix: string, questionNo: number | string, total: num
   return `${prefix}第 ${questionNo}/${total} 题 · AI ${attempt.index}/${attempt.total} ${reason}`
 }
 
-async function clickByTexts(page: Page, dataNum: string, qtype: QType, texts: string[]): Promise<boolean> {
+export async function clickByTexts(page: Page, dataNum: string, qtype: QType, texts: string[]): Promise<boolean> {
   const body = page.locator('.e-q-body[data-num="' + dataNum + '"]')
   const lis = body.locator('li.e-a')
   const n = await lis.count()
@@ -47,22 +47,45 @@ async function clickByTexts(page: Page, dataNum: string, qtype: QType, texts: st
   if (!want.size || targets.length !== want.size || targets.some((entry) => !entry.index) ||
       (qtype !== 'multiple' && targets.length !== 1)) return false
   if (qtype === 'multiple') {
-    const current = new Set((await readAnswer(page, dataNum)).split(',').filter(Boolean))
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i]
-      if (current.has(entry.index) === want.has(entry.text)) continue
-      await waitNoClick(page, dataNum)
-      await lis.nth(i).click({ timeout: 8000 })
-      if (want.has(entry.text)) current.add(entry.index)
-      else current.delete(entry.index)
-      if (current.size && !await waitAnswer(page, dataNum, 8000, [...current])) {
-        throw new Error('多选答案尚未完整写入，停止当前作业')
+    const expected = targets.map((entry) => entry.index)
+    for (let method = 0; method < 2; method++) {
+      let failed = false
+      let timedOut = false
+      let current = new Set(method
+        ? await lis.evaluateAll((items) => items.filter((li) => li.classList.contains('checked')).map((li) => li.getAttribute('data-index') || ''))
+        : (await readAnswer(page, dataNum)).split(',').filter(Boolean))
+      const clicks = entries.map((entry, i) => ({ ...entry, i }))
+        .filter((entry) => current.has(entry.index) !== want.has(entry.text))
+      if (method && !clicks.length) {
+        const target = entries.find((entry) => want.has(entry.text))!
+        clicks.push({ ...target, i: entries.indexOf(target) }, { ...target, i: entries.indexOf(target) })
+      }
+      for (const entry of clicks) {
+        try {
+          await waitNoClick(page, dataNum)
+          const next = new Set(current)
+          if (next.has(entry.index)) next.delete(entry.index)
+          else next.add(entry.index)
+          const saved = page.waitForResponse((response) => response.url().includes('/study/ajax-assignment-online_homework_answer') && response.request().method() === 'POST', { timeout: 8000 }).catch(() => null)
+          if (method) await lis.nth(entry.i).evaluate((li) => (li as HTMLElement).click())
+          else await lis.nth(entry.i).click({ timeout: 8000 })
+          const response = await saved
+          if (!response) { timedOut = true; break }
+          await response.finished()
+          if (!response.ok()) { await page.waitForTimeout(150); failed = true; break }
+          if (next.size && !await waitAnswer(page, dataNum, 8000, [...next])) { failed = true; break }
+          current = next
+        } catch { failed = true; break }
+      }
+      if (timedOut) throw new Error('多选保存请求超时，停止当前作业')
+      if (!failed && await waitQuestionComplete(page, dataNum, expected, 8000)) {
+        const checked = await lis.evaluateAll((items) => items
+          .filter((li) => li.classList.contains('checked'))
+          .map((li) => li.getAttribute('data-index') || ''))
+        if (answerMatches(checked.join(','), expected)) return true
       }
     }
-    if (!await waitQuestionComplete(page, dataNum, targets.map((entry) => entry.index), 8000)) {
-      throw new Error('多选答案与目标不一致，停止当前作业')
-    }
-    return true
+    throw new Error('多选答案与目标不一致，停止当前作业')
   }
   const clicked: string[] = []
   for (let i = 0; i < n; i++) {

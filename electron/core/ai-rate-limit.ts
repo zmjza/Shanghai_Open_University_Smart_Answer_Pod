@@ -1,4 +1,4 @@
-export const AI_MIN_REQUEST_INTERVAL_MS = 750
+export const AI_MIN_REQUEST_INTERVAL_MS = 1_000
 export const AI_RATE_LIMIT_COOLDOWN_MS = 5_000
 
 type Sleep = (ms: number) => Promise<void>

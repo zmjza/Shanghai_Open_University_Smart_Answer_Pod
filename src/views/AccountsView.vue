@@ -24,6 +24,8 @@ const pasteConfirmOpen = ref(false)
 const pasteRows = ref<{ name: string; username: string; password: string }[]>([])
 const pasteErrors = ref<{ line: number; text: string; reason: string }[]>([])
 const pasteBusy = ref(false)
+const deleteAllIds = ref<string[]>([])
+const deletingAll = ref(false)
 const accounts = ref<{ name: string; account: string; local_id: string }[]>([])
 const filter = ref<'all' | 'running' | 'queued'>('all')
 const { snap } = useKaida()
@@ -45,11 +47,8 @@ const queuedCount = computed(() => accounts.value.filter((a) => liveById.value.g
 
 async function importExcel() {
   const r = await window.kaida?.importExcel()
-  if (r && !r.ok) formatError.value = r.error || '格式错误'
-  else {
-    formatError.value = ''
-    await reload()
-  }
+  formatError.value = r?.ok ? `已导入 ${r.count || 0} 名学生` : (r?.error || '格式错误')
+  await reload()
 }
 function onExcel() {
   void importExcel()
@@ -108,19 +107,36 @@ async function confirmPaste() {
     return
   }
   pasteBusy.value = false
-  if (!result?.ok) { formatError.value = result?.error || '批量导入失败'; return }
+  if (!result?.ok && !result?.imported) { formatError.value = result?.error || '批量导入失败'; return }
   pasteOpen.value = false
   pasteConfirmOpen.value = false
   pasteText.value = ''
   pasteRows.value = []
   pasteErrors.value = []
-  formatError.value = `已批量导入 ${result.imported} 名学员`
+  formatError.value = result?.ok ? `已批量导入 ${result.imported} 名学员` : `已导入 ${result?.imported || 0} 名学员；${result?.error || '其余失败'}`
   await reload()
 }
 async function remove(i: number) {
   const id = filteredAccounts.value[i]?.local_id
   if (id) await window.kaida?.removeAccount(id)
   await reload()
+}
+function openDeleteAll() {
+  deleteAllIds.value = accounts.value.map((a) => a.local_id)
+}
+async function confirmDeleteAll() {
+  if (deletingAll.value || !deleteAllIds.value.length) return
+  deletingAll.value = true
+  try {
+    const result = await window.kaida?.removeAllAccounts([...deleteAllIds.value])
+    await reload()
+    formatError.value = result?.ok ? `已删除 ${result.removed} 名学生` : (result?.error || '删除失败')
+    deleteAllIds.value = []
+  } catch (error) {
+    formatError.value = error instanceof Error ? error.message : '删除失败'
+  } finally {
+    deletingAll.value = false
+  }
 }
 
 function beginEdit(account: { local_id: string; name: string }) {
@@ -235,6 +251,7 @@ function courseProgress(localId: string) {
 </div>
 <!-- 头部快捷操作按钮 -->
 <div class="flex items-center gap-2.5 shrink-0">
+<button class="rounded-full border border-red-200 px-3 py-2 text-xs font-medium text-red-600 disabled:opacity-40" type="button" :disabled="!accounts.length" @click="openDeleteAll">全部删除</button>
 <button class="group flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 hover:border-indigo-300 text-slate-700 shadow-sm hover:bg-slate-50 hover:-translate-y-0.5 active:scale-95 transition-all duration-200 text-xs font-medium" type="button" @click="importExcel">
 <span class="material-symbols-outlined text-[17px] text-[#4F46E5] transition-transform duration-200 group-hover:-translate-y-0.5">upload_file</span>
 <span class="">导入 Excel 批量名单</span>
@@ -381,6 +398,13 @@ function courseProgress(localId: string) {
 </main>
 <input ref="excelInput" type="file" accept=".xlsx,.xls,.csv" class="hidden" @change="onExcel" />
   </div>
+<div v-if="deleteAllIds.length" class="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/55 p-6">
+<section class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="确认全部删除学生账号">
+<h2 class="text-lg font-bold">确认全部删除 {{ deleteAllIds.length }} 名学生？</h2>
+<p class="mt-2 text-sm text-slate-600">将先停止正在运行和排队的学生，再删除全部学生账号；题库不受影响。</p>
+<div class="mt-5 flex justify-end gap-2"><button type="button" class="rounded-full border px-4 py-2 text-sm" :disabled="deletingAll" @click="deleteAllIds = []">取消</button><button type="button" class="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40" :disabled="deletingAll" @click="confirmDeleteAll">确认全部删除</button></div>
+</section>
+</div>
 <div v-if="pasteOpen" class="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/45 p-6" @click.self="pasteOpen = false">
 <section class="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl">
 <div class="flex items-center justify-between"><h2 class="text-lg font-bold">复制粘贴批量导入</h2><button type="button" aria-label="关闭批量导入" @click="pasteOpen = false">×</button></div>

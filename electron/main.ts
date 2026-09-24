@@ -10,12 +10,15 @@ import { contentHash } from './core/hash'
 import { deleteQuestions, listQuestionCourses, listQuestions, upsertQuestion, testConn } from './bank'
 import { bankAccessStatus, unlockBank } from './bank-access'
 import {
+  applyStudentSettingsToAll,
+  enqueueNewStudents,
   deleteStudentRuntime,
   getQrSnapshot,
   getHistoryPaperImage,
   getHomeworkHistory,
   loginAndRefresh,
   isRunning,
+  isStudentLocked,
   openVisual,
   refreshQrSnapshot,
   setAnswerRoundLimit,
@@ -25,6 +28,8 @@ import {
   signalVerified,
   snapshot,
   startSelectedCourseExecution,
+  startStudent,
+  stopAllStudents,
   stopStudent,
   toggleDisplay,
 } from './runner'
@@ -45,17 +50,23 @@ if (process.env.KAIDA_E2E_USERDATA) {
 }
 
 function importExcelFromPath(p: string): { ok: boolean; error?: string; count?: number } {
-  if (p.endsWith('.csv')) {
-    const rows = parseCsv(readFileSync(p, 'utf8'))
-    for (const row of rows) addAccount(row)
-    return { ok: true, count: rows.length }
+  const rows = p.endsWith('.csv') ? parseCsv(readFileSync(p, 'utf8')) : (() => {
+    const wb = XLSX.readFile(p)
+    const sh = wb.Sheets[wb.SheetNames[0]]
+    return rowsFromMatrix(XLSX.utils.sheet_to_json(sh, { header: 1, raw: false }) as string[][])
+  })()
+  const existing = new Set(listAccounts().map((account) => account.username))
+  const addedIds: string[] = []
+  let failed = 0
+  for (const row of rows) {
+    if (existing.has(row.username)) { failed++; continue }
+    try {
+      addedIds.push(addAccount(row).local_id)
+      existing.add(row.username)
+    } catch { failed++ }
   }
-  const wb = XLSX.readFile(p)
-  const sh = wb.Sheets[wb.SheetNames[0]]
-  const matrix = XLSX.utils.sheet_to_json(sh, { header: 1, raw: false }) as string[][]
-  const rows = rowsFromMatrix(matrix)
-  for (const row of rows) addAccount(row)
-  return { ok: true, count: rows.length }
+  enqueueNewStudents(addedIds)
+  return { ok: failed === 0, count: addedIds.length, error: failed ? `${failed} 名学生重复或保存失败` : undefined }
 }
 
 function createWindow() {
@@ -245,7 +256,9 @@ ipcMain.handle('kaida:accounts:list', () => listAccounts().map((a) => ({
 })))
 ipcMain.handle('kaida:accounts:add', (_e, row: { name: string; username: string; password: string }) => {
   if (!row.username || !row.password) return { ok: false, error: '姓名、账号、密码都要填' }
-  addAccount(row)
+  if (listAccounts().some((a) => a.username === row.username)) return { ok: false, error: '账号已存在' }
+  const added = addAccount(row)
+  enqueueNewStudents([added.local_id])
   pushSnap()
   return { ok: true }
 })
@@ -256,6 +269,7 @@ ipcMain.handle('kaida:accounts:update', (_e, id: string, row: { name?: string; p
   if (row.password) patch.password = row.password
   if (row.display_mode) patch.display_mode = row.display_mode
   if (row.work_mode) patch.work_mode = row.work_mode
+  if ((patch.display_mode || patch.work_mode) && isStudentLocked(id)) return { ok: false, error: '该学生运行中，配置已锁定' }
   if (!Object.keys(patch).length) return { ok: false, error: '没有可保存的修改' }
   patchAccount(id, patch)
   pushSnap()
@@ -266,6 +280,21 @@ ipcMain.handle('kaida:accounts:remove', async (_e, id: string) => {
   removeAccount(id)
   pushSnap()
   return { ok: true }
+})
+ipcMain.handle('kaida:accounts:removeAll', async (_e, confirmedIds: string[]) => {
+  const ids = listAccounts().map((a) => a.local_id)
+  if (!Array.isArray(confirmedIds) || ids.length !== confirmedIds.length || ids.some((id) => !confirmedIds.includes(id))) {
+    return { ok: false, removed: 0, error: '学生账号已变化，请重新确认' }
+  }
+  await stopAllStudents()
+  const current = listAccounts().map((a) => a.local_id)
+  if (current.length !== ids.length || current.some((id) => !ids.includes(id))) return { ok: false, removed: 0, error: '学生账号已变化，请重新确认' }
+  let removed = 0
+  for (const id of ids) {
+    try { removeAccount(id); removed++ } catch { break }
+  }
+  pushSnap()
+  return { ok: removed === ids.length, removed, error: removed === ids.length ? undefined : '部分账号删除失败，请核对后重试' }
 })
 ipcMain.handle('kaida:accounts:importExcel', async () => {
   const forced = process.env.KAIDA_EXCEL_PATH
@@ -293,14 +322,19 @@ ipcMain.handle('kaida:accounts:paste:parse', (_e, text: string) => {
 ipcMain.handle('kaida:accounts:paste:confirm', (_e, rows: AccountRow[]) => {
   const existing = new Set(listAccounts().map((account) => account.username))
   let imported = 0
+  let failed = 0
+  const addedIds: string[] = []
   for (const row of Array.isArray(rows) ? rows : []) {
     if (!row?.name || !row?.username || !row?.password || existing.has(row.username)) continue
-    addAccount({ name: row.name, username: row.username, password: row.password })
-    existing.add(row.username)
-    imported++
+    try {
+      addedIds.push(addAccount({ name: row.name, username: row.username, password: row.password }).local_id)
+      existing.add(row.username)
+      imported++
+    } catch { failed++ }
   }
+  enqueueNewStudents(addedIds)
   pushSnap()
-  return { ok: true, imported }
+  return { ok: failed === 0, imported, error: failed ? `${failed} 名学生保存失败` : undefined }
 })
 ipcMain.handle('kaida:bank:importJson', async () => {
   const startedAt = Date.now()
@@ -351,8 +385,22 @@ ipcMain.handle('kaida:bank:delete', (event, ids: string[]) => {
   return deleteQuestions(Array.isArray(ids) ? ids : [])
 })
 ipcMain.handle('kaida:run:detect', async (_e, accountIds?: string[]) => {
-  await loginAndRefresh(Array.isArray(accountIds) ? accountIds : undefined)
+  return loginAndRefresh(Array.isArray(accountIds) ? accountIds : undefined)
+})
+ipcMain.handle('kaida:run:startStudent', (_e, id: string) => {
+  const result = startStudent(id)
+  pushSnap()
+  return result
+})
+ipcMain.handle('kaida:run:stopAll', async () => {
+  await stopAllStudents()
+  pushSnap()
   return { ok: true }
+})
+ipcMain.handle('kaida:settings:applyAll', (_e, id: string) => {
+  const result = applyStudentSettingsToAll(id)
+  pushSnap()
+  return result
 })
 ipcMain.handle('kaida:display', async (_e, id: string, mode: 'headless' | 'visual') => {
   const result = await toggleDisplay(id, mode)
@@ -384,8 +432,9 @@ ipcMain.handle('kaida:history:list', (_e, id: string, courseName: string, homewo
 ipcMain.handle('kaida:history:paper', (_e, id: string, courseName: string, homeworkName: string, submittedAt: string) =>
   getHistoryPaperImage(id, courseName, homeworkName, submittedAt))
 ipcMain.handle('kaida:answerRoundLimit', (_e, id: string, limit: number) => {
-  setAnswerRoundLimit(id, limit)
+  const result = setAnswerRoundLimit(id, limit)
   pushSnap()
+  return result
 })
 ipcMain.handle('kaida:openVisual', async (_e, id: string) => openVisual(id))
 ipcMain.handle('kaida:qr:get', (_e, id: string) => getQrSnapshot(id))

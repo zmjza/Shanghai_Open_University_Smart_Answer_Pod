@@ -2,6 +2,22 @@
 
 目标仓库：`zmjza/SmartAnswerPod`；分支：`main`。
 
+## 1.0.4 正式发布与新基线安装
+
+- 提交/Tag：`3a2e42406e41d59e34a050ff272814c9a9824088` / `v1.0.4`；GitHub main 与 Tag 指向同一提交。统一发布命令退出码 0，Release `https://github.com/zmjza/SmartAnswerPod/releases/tag/v1.0.4` 为非草稿、非预发布；8 项资产由脚本回下载校验。
+- 资产（名称 / 字节 / SHA-256）：
+  - `kaida-auto-quiz-1.0.4-macOS.dmg` / 123283285 / `4cd491027e960fac11831688c2b087e17cafed5793d6f40aa97a3f1406ce6796`
+  - `kaida-auto-quiz-1.0.4-macOS.dmg.blockmap` / 129916 / `205e95bd3cc9b2962eb18c11497813266d91c9ef687b5c8d948d5a89ff3b652b`
+  - `kaida-auto-quiz-1.0.4-macOS.zip` / 122249426 / `d38ad5e547de79ff793593d0f20a4fb11b36d46d9af034809f6b54d9a3f5755c`
+  - `kaida-auto-quiz-1.0.4-macOS.zip.blockmap` / 125076 / `15572bd17659f41d682fbed356228cb2cfb36ad3c3b7ac5c57956c9de03a9d7c`
+  - `kaida-auto-quiz-1.0.4-Windows.exe` / 94533377 / `181d48d414cd0e1cc5161046605073f73a8676771c782953be56ab2c7c1be313`
+  - `kaida-auto-quiz-1.0.4-Windows.exe.blockmap` / 98297 / `0d21d6e4e3446ce0cc33c47104a1a44af9b0fbf19405a34994dc7a0bc099b42b`
+  - `latest-mac.yml` / 521 / `5d0fa80f96454a0ecefe4c0628c6ef5c684182b896cb51239bef3bf1995e7783`
+  - `latest.yml` / 362 / `53f66a5f312c467685942ac9fa4d7c43fe67e9702ed2f0da892fc5253ba29f5e`
+- 从正式 Release 独立下载 ZIP，大小、SHA-256、`latest-mac.yml` 的 SHA-512 与 ZIP 完整性均匹配；解包 App 的版本 1.0.4、严格嵌套验签和稳定 designated requirement 通过。退出旧 1.0.2 后，在 `/Applications` 原位装入正式 1.0.4；Finder 应用程序目录可见，旧 App 暂存于本次临时目录以备回退。
+- 正式 1.0.4 使用隔离数据目录启动，界面显示 v1.0.4；点击检查时显示忙碌态，随后通知“当前已是最新版本”。默认原用户目录启动及隔离目录保存虚构账号均被 macOS Keychain 授权卡住；原用户数据文件哈希仍为 `d437a3848899db4c18328855b43453f01dd87d40c745d422aca565f605f05be9`，但可解密使用未验收。
+- 后续须发布 1.0.5，再由正式 1.0.4 客户端实测跨版本发现、进度、Squirrel 安装、自动重启与数据保留；Windows 无真机。
+
 ## 1.0.3 正式发布及 1.0.2 → 1.0.3 真机失败
 
 - 提交/Tag：`d6e38b5d4174a781ac4677656c4b0c5d3db27a26` / `v1.0.3`；GitHub main 与 Tag 指向同一提交。统一发布命令成功，Release `https://github.com/zmjza/SmartAnswerPod/releases/tag/v1.0.3` 为非草稿、非预发布，8 项资产经脚本上传和回下载 SHA-256 校验。macOS ZIP 为 122247148 字节，SHA-256 `9cf7f2e1a73acf1f8dd636c52731ef0ca904884d284bc8fcd64fdc793ca148fc`。

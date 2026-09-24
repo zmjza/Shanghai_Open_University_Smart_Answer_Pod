@@ -1,3 +1,9 @@
+## 1.0.5（稳定签名 OTA 真机验证目标版）
+
+- 沿用 1.0.4 的 ad-hoc 签名要求和更新流程，作为正式 1.0.4 客户端的跨版本 OTA 验证目标；不改动业务功能。
+- 验证起点：正式 1.0.4 安装在 `/Applications`，包内版本、签名与图标资源核对通过；隔离目录中的正式客户端从 GitHub 收到“当前已是最新版本”。
+- 限制：1.0.4 → 1.0.5 的下载、Squirrel 替换、自动重启及数据保留必须在本版发布后实测；macOS Keychain 授权仍阻塞原用户目录及隔离目录测试账号写入，Windows 无真机。
+
 ## 1.0.4（ad-hoc 签名 OTA 过渡版）
 
 - 为 electron-builder 的完整 ad-hoc 签名配置稳定的 macOS designated requirement，覆盖应用及当前 Electron 内嵌组件；本地 ARM64 App bundle 的严格嵌套验签通过。

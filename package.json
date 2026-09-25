@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build",
+    "package": "node scripts/package-local.mjs",
     "release:publish": "node scripts/release-publish.mjs",
     "preview": "vite preview",
     "test:p0": "node --experimental-strip-types --test tests/p0.test.mts",

@@ -37,7 +37,7 @@ declare global {
       listBankQuestions: (query: { page: number; pageSize: number; courseName?: string; searchMode?: 'fuzzy' | 'exact'; searchText?: string }) => Promise<{ ok: boolean; error?: string; rows: { id: string; qtype: string; stem: string; options: string[]; answer_texts: string[]; course_names: string[]; updated_at: string }[]; total: number; page: number; pageSize: number }>
       listBankCourses: () => Promise<{ ok: boolean; error?: string; courses: string[] }>
       deleteBankQuestions: (ids: string[]) => Promise<{ requestedIds: string[]; deletedIds: string[]; failed: { id: string; reason: string }[]; readbackConfirmed: boolean; error?: string }>
-      loginRefresh: (accountIds?: string[]) => Promise<{ ok: boolean }>
+      loginRefresh: (accountIds?: string[]) => Promise<{ ok: boolean; error?: string }>
       startStudent: (id: string) => Promise<{ ok: boolean; error?: string }>
       stopAllStudents: () => Promise<{ ok: boolean }>
       applyStudentSettingsToAll: (id: string) => Promise<{ ok: boolean; updated?: number; failed?: string[]; error?: string }>

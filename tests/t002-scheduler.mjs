@@ -47,6 +47,8 @@ const finish = (id) => { const resolve = fixture.pending.get(id); assert.ok(reso
 const firstRun = runner.loginAndRefresh(["a"])
 await waitFor(() => fixture.starts.includes("a"))
 assert.equal(runner.isRunning(), true)
+assert.equal(runner.applyStudentSettingsToAll("a").ok, false, "运行中不能批量改配置")
+assert.equal(runner.setCourseScope("a", "selected").ok, false, "运行中不能改单人课程模式")
 assert.equal(runner.enqueueNewStudents(["b"]), 1)
 await waitFor(() => fixture.starts.includes("b"))
 assert.equal(fixture.occupied.size, 2)
@@ -74,4 +76,24 @@ await stopAll
 assert.equal(runner.isRunning(), false)
 assert.equal(fixture.occupied.size, 0)
 assert.equal(runner.enqueueNewStudents(["b"]), 0, "全部停止后新增账号保持空闲")
+assert.equal(runner.setCourseScope("a", "all").ok, true, "全部释放后应恢复配置编辑")
+assert.equal(runner.snapshot().running, false, "全部释放后主按钮必须解锁")
+const rerun = runner.loginAndRefresh(["a"])
+await waitFor(() => fixture.starts.filter(id => id === "a").length === 3)
+finish("a")
+await rerun
+assert.equal(runner.snapshot().running, false, "自然结束后主按钮必须解锁")
+runner.views.get("a").selectedCourseNames = ["课程甲"]
+runner.views.get("b").selectedCourseNames = ["课程乙"]
+fixture.accounts[0].course_scope = "selected"
+fixture.accounts[1].course_scope = "selected"
+runner.views.get("a").courseScope = "selected"
+runner.views.get("b").courseScope = "selected"
+assert.equal(runner.applyStudentSettingsToAll("a").ok, true)
+assert.deepEqual(runner.views.get("a").selectedCourseNames, ["课程甲"], "同步模式不应清空源学生选课")
+assert.deepEqual(runner.views.get("b").selectedCourseNames, ["课程乙"], "同步模式不应清空其他学生选课")
+fixture.accounts[1].course_scope = "all"
+runner.views.get("b").courseScope = "all"
+assert.equal(runner.applyStudentSettingsToAll("a").ok, true)
+assert.deepEqual(runner.views.get("b").selectedCourseNames, [], "课程模式变化应清理过期本轮选课")
 console.log("T002 离线调度测试通过")

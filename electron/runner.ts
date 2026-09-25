@@ -91,7 +91,6 @@ const unverifiedClicks = new Map<string, number>()
 const verifiedAccounts = new Set<string>()
 const stopFlag = new Set<string>()
 const stopControllers = new Map<string, AbortController>()
-let running = false
 let runConcurrency: ReturnType<typeof concurrencySnapshot> | null = null
 let runAccountIds = new Set<string>()
 const activeRuns = new Map<string, Promise<void>>()
@@ -276,12 +275,12 @@ export function snapshot() {
       hasAnon: Boolean(settings.supabase_anon),
     },
     students,
-    running,
+    running: isRunning(),
   }
 }
 
 export function isRunning() {
-  return running
+  return stoppingAll || activeRuns.size > 0
 }
 
 export function isStudentLocked(local_id: string) {
@@ -289,7 +288,7 @@ export function isStudentLocked(local_id: string) {
 }
 
 export function canApplyAllSettings() {
-  return !running && !stoppingAll && activeRuns.size === 0
+  return !isRunning()
 }
 
 export function applyStudentSettingsToAll(local_id: string) {
@@ -302,6 +301,7 @@ export function applyStudentSettingsToAll(local_id: string) {
   let updated = 0
   for (const account of accounts) {
     try {
+      const courseScopeChanged = account.course_scope !== patch.course_scope
       patchAccount(account.local_id, { ...patch })
       const v = views.get(account.local_id)
       if (v) {
@@ -309,7 +309,7 @@ export function applyStudentSettingsToAll(local_id: string) {
         v.workMode = patch.work_mode
         v.courseScope = patch.course_scope
         v.answerRoundLimit = patch.answer_round_limit
-        v.selectedCourseNames = []
+        if (courseScopeChanged) v.selectedCourseNames = []
       }
       updated++
     } catch { failed.push(account.name) }
@@ -1500,7 +1500,6 @@ function scheduleStudent(a: LocalAccount) {
     stopControllers.delete(a.local_id)
     clearVerification(a.local_id, true)
     if (!activeRuns.size) {
-      running = false
       runConcurrency = null
       selectionStartRequested = false
     }
@@ -1513,18 +1512,17 @@ export function startStudent(local_id: string) {
   const account = listAccounts().find((a) => a.local_id === local_id)
   if (!account) return { ok: false, error: '学生账号不存在' }
   if (stoppingAll || isStudentLocked(local_id)) return { ok: false, error: '该学生正在运行、排队或停止中' }
-  if (!running) {
+  if (!isRunning()) {
     runConcurrency = concurrencySnapshot(getSettings())
     slots.setLimit(runConcurrency.account_parallel)
     selectionStartRequested = false
-    running = true
   }
   scheduleStudent(account)
   return { ok: true }
 }
 
 export function enqueueNewStudents(ids: string[]) {
-  if (!running || stoppingAll) return 0
+  if (!isRunning() || stoppingAll) return 0
   const wanted = new Set(ids)
   let count = 0
   for (const account of listAccounts()) if (wanted.has(account.local_id) && scheduleStudent(account)) count++
@@ -1537,7 +1535,6 @@ export async function stopAllStudents() {
     await Promise.all([...activeRuns.keys()].map((id) => stopStudent(id)))
     await Promise.all([...activeRuns.values()])
   } finally {
-    running = false
     runConcurrency = null
     selectionStartRequested = false
     stoppingAll = false
@@ -1545,13 +1542,12 @@ export async function stopAllStudents() {
 }
 
 export async function loginAndRefresh(accountIds?: string[]) {
-  if (running || stoppingAll) return { ok: false, error: '任务运行中，请单独开始或停止学生' }
+  if (isRunning()) return { ok: false, error: '任务运行中，请单独开始或停止学生' }
   const accounts = listAccounts().filter((a) => !accountIds || accountIds.includes(a.local_id))
   if (!accounts.length) return { ok: false, error: '请先添加学生账号' }
   runConcurrency = concurrencySnapshot(getSettings())
   slots.setLimit(runConcurrency.account_parallel)
   selectionStartRequested = false
-  running = true
   for (const account of accounts) scheduleStudent(account)
   await Promise.all(accounts.map((a) => activeRuns.get(a.local_id)!))
   return { ok: true }

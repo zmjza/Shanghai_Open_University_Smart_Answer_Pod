@@ -17,20 +17,24 @@ let saved = ''
 let inFlight = 0
 let maxInFlight = 0
 let failNext = false
+let hangNext = false
 const server = createServer((req, res) => {
   if (req.method === 'POST') {
     inFlight++
     maxInFlight = Math.max(maxInFlight, inFlight)
     let body = ''
     req.on('data', (chunk) => { body += chunk })
-    req.on('end', () => setTimeout(() => {
+    req.on('end', () => {
+      if (hangNext) { hangNext = false; setTimeout(() => { res.writeHead(200); res.end('{}') }, 9500); return }
+      setTimeout(() => {
       const failed = failNext
       failNext = false
       if (!failed) saved = new URLSearchParams(body).get('answer') || ''
       inFlight--
       res.writeHead(failed ? 500 : 200, { 'content-type': 'application/json' })
       res.end('{"ok":true}')
-    }, 250))
+      }, 250)
+    })
     return
   }
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
@@ -70,6 +74,11 @@ try {
   await page.locator('.e-item').evaluate((item) => item.classList.add('active'))
   assert.equal(await clickByTexts(page, '1', 'multiple', ['甲', '丙']), true, 'repair a stale checked state')
   assert.deepEqual(await page.locator('li.e-a.checked').evaluateAll((items) => items.map((li) => li.getAttribute('data-index'))), ['0', '2'])
+  await page.reload()
+  saved = ''
+  hangNext = true
+  await assert.rejects(clickByTexts(page, '1', 'multiple', ['甲', '丙']), /多选保存请求超时/)
+  assert.equal(saved, '', '结果未知时不能视为保存成功')
 } finally {
   await browser.close()
   server.close()

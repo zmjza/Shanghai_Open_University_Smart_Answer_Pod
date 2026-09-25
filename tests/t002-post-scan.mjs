@@ -45,7 +45,7 @@ globalThis.__t002Context = context
 const mock = (...lines) => lines.join(String.fromCharCode(10))
 const modules = {
   electron: mock(
-    "export const app = { getVersion: () => '2.2.0' }",
+    "export const app = { getVersion: () => '2.2.1' }",
     "export class Notification { static isSupported() { return false } }",
   ),
   "./store": mock(
@@ -122,6 +122,11 @@ const run = runner.loginAndRefresh(['student-1'])
 await waitFor(() => fixture.portalWaiting, '门户验证等待')
 assert.deepEqual((await runner.signalVerified('student-1')).ok, true)
 await waitFor(() => fixture.homeworkClicks === 1 && fixture.events.includes('needs_verify'), '作业二维码验证等待')
+const denied = await runner.signalVerified('student-1')
+assert.equal(denied.ok, false, '二维码仍显示时不得放行')
+assert.match(denied.error, /验证|扫码|二维码/)
+assert.equal(fixture.events.includes('answering'), false, '验证失败时不得作答')
+assert.equal(runner.snapshot().students[0].slot, 'occupying_verify')
 fixture.qrOpen = false
 assert.deepEqual((await runner.signalVerified('student-1')).ok, true)
  let timeoutId
@@ -140,4 +145,15 @@ assert.equal(student.configLocked, false)
 assert.equal(fixture.submitted, true)
 for (const event of ['portal_verified', 'answering', 'submitting', 'reviewing']) assert.ok(fixture.events.includes(event), event + ' 未触发')
 assert.equal(runner.isRunning(), false)
+fixture.portalWaiting = false
+fixture.released = false
+const completedAnswers = fixture.events.filter((event) => event === 'answering').length
+assert.equal(runner.startStudent('student-1').ok, true)
+await waitFor(() => fixture.portalWaiting, '重新扫描门户验证等待')
+await runner.stopStudent('student-1')
+assert.equal(runner.snapshot().students[0].account, 'stopped')
+assert.equal(runner.snapshot().students[0].slot, 'released')
+assert.equal(runner.snapshot().students[0].configLocked, false)
+assert.equal(fixture.released, true)
+assert.equal(fixture.events.filter((event) => event === 'answering').length, completedAnswers, '验证等待中停止不得继续作答')
 console.log('T002 扫码后完整内部模拟链路通过')

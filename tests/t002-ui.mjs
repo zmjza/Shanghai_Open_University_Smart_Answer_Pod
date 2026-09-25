@@ -42,6 +42,11 @@ try {
   await page.getByRole("dialog", { name: "确认全部删除学生账号" }).waitFor({ state: "hidden" })
   const deleted = await call("Promise.all([window.kaida.listAccounts(), window.kaida.snapshot()]).then(([rows, snap]) => [rows.length, snap.students.length])")
   assert.deepEqual(deleted, [0, 0])
+  await page.getByText("工作台", { exact: true }).first().click()
+  const primary = page.locator("#btn-primary-action")
+  assert.equal(await primary.isEnabled(), true, "没有运行学生时应能点击登录并刷新课程")
+  await primary.click()
+  await page.getByText("请先添加学生账号", { exact: true }).waitFor()
   console.log("T002 配置批量同步与全部删除 UI 测试通过")
 } finally {
   await app.close()

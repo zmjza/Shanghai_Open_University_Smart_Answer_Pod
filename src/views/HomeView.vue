@@ -228,10 +228,11 @@ async function startCurrentStudent() {
   const result = await window.kaida?.startStudent(currentId())
   showToast(result?.ok ? '该学生已重新开始或进入队列' : (result?.error || '开始失败'))
 }
-function loginRefresh() {
+async function loginRefresh() {
   if (controlsLocked.value) return
-  void window.kaida?.loginRefresh()
-  showToast('已触发登录验证并同步课程')
+  showToast('正在登录并刷新课程')
+  const result = await window.kaida?.loginRefresh()
+  showToast(result?.ok ? '本轮课程刷新已结束' : (result?.error || '登录并刷新课程失败'))
 }
 async function openQr() {
   qrOpen.value = true
